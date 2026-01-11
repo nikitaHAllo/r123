@@ -1,0 +1,15 @@
+services:
+  botanti:
+    build: .
+    container_name: botanti
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/data/database.db
+    volumes:
+      - botanti_data:/data
+
+volumes:
+  botanti_data:

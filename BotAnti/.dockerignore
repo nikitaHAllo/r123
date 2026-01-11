@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+database.db
+.env
+.git/
+npm-debug.log*
+Dockerfile*
+docker-compose*
+README*.md
