@@ -16,6 +16,7 @@ import {
 	activeAnalyses,
 	pendingMessages,
 	startAnalysis,
+	normalizeUserIdForComparison,
 } from './messageAnalysis.js';
 import { waitingForCustomLimit, waitingForAuthorFilter } from './callbacks.js';
 import { MessageData } from './documentHandler.js';
@@ -140,7 +141,10 @@ async function handleAuthorFilterInput(
 	const filteredCount = pending.messages.filter(msg => {
 		if (isNumeric) {
 			// Фильтр по user_id
-			return msg.userId && String(msg.userId) === authorName.trim();
+			if (!msg.userId) return false;
+			const userIdFilter = authorName.trim().replace(/^user/, '');
+			const normalizedMsgUserId = normalizeUserIdForComparison(msg.userId);
+			return normalizedMsgUserId === userIdFilter;
 		} else {
 			// Фильтр по имени
 			return msg.author.toLowerCase().includes(authorName.toLowerCase());
@@ -237,6 +241,7 @@ export function registerMessageHandlers(
 			if (result) {
 				allMessages.push(...result.messages);
 				totalFilesProcessed.value++;
+
 				await ctx.reply(
 					`✅ Файл ${result.fileName} загружен!\n` +
 						`📨 Сообщений из файла: ${result.messages.length}\n` +
@@ -244,6 +249,16 @@ export function registerMessageHandlers(
 						`📁 Обработано файлов: ${totalFilesProcessed.value}\n\n` +
 						`Для анализа всех сообщений используйте команду /analyze`
 				);
+
+				// Сохраняем rawData в pending для доступа через callback
+				const chatId = ctx.chat.id;
+				const existingPending = pendingMessages.get(chatId);
+				pendingMessages.set(chatId, {
+					messages: existingPending?.messages || result.messages,
+					fileName: result.fileName,
+					authorFilter: existingPending?.authorFilter,
+					rawData: result.rawData // Сохраняем для извлечения пользователей
+				});
 			}
 			return;
 		}

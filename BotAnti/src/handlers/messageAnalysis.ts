@@ -19,6 +19,7 @@ export interface PendingMessages {
 	messages: MessageData[];
 	fileName: string;
 	authorFilter?: string; // Фильтр по имени автора
+	rawData?: any; // Сырые данные JSON для извлечения пользователей
 }
 
 export const activeAnalyses = new Map<number, ActiveAnalysis>();
@@ -324,6 +325,23 @@ async function handleCancellation(
 	activeAnalyses.delete(chatId);
 }
 
+// Функция для нормализации user_id к числовому формату (убираем префикс "user" если есть)
+export function normalizeUserIdForComparison(userId: string | number | undefined): string | null {
+	if (userId === undefined || userId === null) return null;
+	
+	const userIdStr = String(userId);
+	// Если есть префикс "user", убираем его
+	if (userIdStr.startsWith('user')) {
+		return userIdStr.substring(4); // Убираем "user"
+	}
+	// Извлекаем только цифры
+	const numericMatch = userIdStr.match(/\d+/);
+	if (numericMatch) {
+		return numericMatch[0];
+	}
+	return userIdStr;
+}
+
 export async function startAnalysis(
 	ctx: Context,
 	bot: Bot,
@@ -342,11 +360,12 @@ export async function startAnalysis(
 		const isNumeric = /^\d+$/.test(authorFilter.trim());
 		
 		if (isNumeric) {
-			// Фильтруем по user_id
-			const userIdFilter = authorFilter.trim();
+			// Фильтруем по user_id - нормализуем фильтр (убираем "user" если есть)
+			const userIdFilter = authorFilter.trim().replace(/^user/, '');
 			filteredMessages = messages.filter(msg => {
 				if (!msg.userId) return false;
-				return String(msg.userId) === userIdFilter;
+				const normalizedMsgUserId = normalizeUserIdForComparison(msg.userId);
+				return normalizedMsgUserId === userIdFilter;
 			});
 		} else {
 			// Фильтруем по имени автора
@@ -468,6 +487,7 @@ export function createLimitKeyboard(
 	const callback10000 = `analyze_limit_${chatId}_10000`;
 	const callbackCustom = `analyze_limit_${chatId}_custom`;
 	const callbackAuthorFilter = `analyze_author_filter_${chatId}`;
+	const callbackShowUsers = `show_users_${chatId}`;
 
 	const keyboard = new InlineKeyboard()
 		.text('📊 Все сообщения', callbackAll)
@@ -489,6 +509,12 @@ export function createLimitKeyboard(
 		keyboard.row().text(`👤 Фильтр: ${authorFilter}`, callbackAuthorFilter);
 	} else {
 		keyboard.row().text('👤 Поиск по имени', callbackAuthorFilter);
+	}
+
+	// Проверяем наличие rawData для показа кнопки списка пользователей
+	const pending = pendingMessages.get(chatId);
+	if (pending?.rawData) {
+		keyboard.row().text('👥 Список пользователей', callbackShowUsers);
 	}
 	
 	return keyboard;

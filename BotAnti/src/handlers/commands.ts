@@ -1,7 +1,7 @@
 import { Bot } from 'grammy';
 import { ADMINS } from '../config.js';
 import { checkBotPermissions } from './violationHandler.js';
-import { createLimitKeyboard, pendingMessages } from './messageAnalysis.js';
+import { createLimitKeyboard, pendingMessages, normalizeUserIdForComparison } from './messageAnalysis.js';
 import { MessageData } from './documentHandler.js';
 
 let isCheckingChat = false;
@@ -79,6 +79,7 @@ export function registerCommands(
 			messages: allMessages,
 			fileName: `все_файлы_(${totalFilesProcessed.value})`,
 			authorFilter: pending?.authorFilter, // Сохраняем фильтр если он был установлен
+			rawData: pending?.rawData, // Сохраняем rawData если он был (для последнего загруженного JSON файла)
 		});
 	});
 
@@ -140,7 +141,10 @@ export function registerCommands(
 		const filteredCount = allMessages.filter(msg => {
 			if (isNumeric) {
 				// Фильтр по user_id
-				return msg.userId && String(msg.userId) === authorName.trim();
+				if (!msg.userId) return false;
+				const userIdFilter = authorName.trim().replace(/^user/, '');
+				const normalizedMsgUserId = normalizeUserIdForComparison(msg.userId);
+				return normalizedMsgUserId === userIdFilter;
 			} else {
 				// Фильтр по имени
 				return msg.author.toLowerCase().includes(authorName.toLowerCase());

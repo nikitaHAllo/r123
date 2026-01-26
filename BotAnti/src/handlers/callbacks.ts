@@ -1,10 +1,12 @@
-import { Bot } from 'grammy';
+import { Bot, InlineKeyboard } from 'grammy';
 import {
 	activeAnalyses,
 	pendingMessages,
 	startAnalysis,
 	createLimitKeyboard,
+	normalizeUserIdForComparison,
 } from './messageAnalysis.js';
+import { extractUniqueUsers } from './documentHandler.js';
 
 export const waitingForCustomLimit = new Map<number, boolean>();
 export const waitingForAuthorFilter = new Map<number, boolean>();
@@ -13,6 +15,8 @@ const CALLBACK_PREFIXES = {
 	CANCEL: 'cancel_',
 	ANALYZE_LIMIT: 'analyze_limit_',
 	ANALYZE_AUTHOR_FILTER: 'analyze_author_filter_',
+	SHOW_USERS: 'show_users_',
+	BACK_TO_ANALYSIS: 'back_to_analysis_',
 } as const;
 
 function handleCancelCallback(ctx: any, chatId: number) {
@@ -55,6 +59,131 @@ export function registerCallbacks(
 		const data = ctx.callbackQuery?.data;
 		if (!data) return;
 
+		if (data.startsWith(CALLBACK_PREFIXES.SHOW_USERS)) {
+			const chatId = Number(data.split('_').pop());
+			const pending = pendingMessages.get(chatId);
+			
+			if (!pending || !pending.rawData) {
+				await ctx.answerCallbackQuery({
+					text: '⚠️ Данные о файле не найдены. Загрузите файл заново.',
+					show_alert: true,
+				});
+				return;
+			}
+
+			await ctx.answerCallbackQuery();
+			
+			try {
+				const users = extractUniqueUsers(pending.rawData);
+				
+				if (users.length === 0) {
+					await ctx.editMessageText(
+						'⚠️ Пользователи не найдены в файле.'
+					);
+					return;
+				}
+
+				// Форматируем список пользователей в нужном формате
+				const usersList = users.map(user => {
+					const userId = user.userId.startsWith('user') 
+						? user.userId 
+						: `user${user.userId}`;
+					return `${userId} — пользователь «${user.name}»`;
+				}).join('\n');
+
+				// Создаем клавиатуру с кнопкой "Назад"
+				const backKeyboard = new InlineKeyboard()
+					.text('◀️ Назад к анализу', `back_to_analysis_${chatId}`);
+
+				// Telegram ограничивает длину сообщения, разбиваем на части если нужно
+				const MAX_MESSAGE_LENGTH = 4000;
+				if (usersList.length <= MAX_MESSAGE_LENGTH) {
+					await ctx.editMessageText(
+						`👥 Список пользователей (${users.length}):\n\n` +
+						usersList,
+						{
+							reply_markup: backKeyboard,
+						}
+					);
+				} else {
+					// Разбиваем на части
+					const parts = [];
+					let currentPart = '';
+					
+					for (const line of users.map(user => {
+						const userId = user.userId.startsWith('user') 
+							? user.userId 
+							: `user${user.userId}`;
+						return `${userId} — пользователь «${user.name}»`;
+					})) {
+						if ((currentPart + line + '\n').length > MAX_MESSAGE_LENGTH) {
+							parts.push(currentPart);
+							currentPart = line + '\n';
+						} else {
+							currentPart += line + '\n';
+						}
+					}
+					
+					if (currentPart) {
+						parts.push(currentPart);
+					}
+
+					await ctx.editMessageText(
+						`👥 Список пользователей (${users.length}):\n\n` +
+						parts[0],
+						{
+							reply_markup: backKeyboard,
+						}
+					);
+
+					// Отправляем остальные части
+					for (let i = 1; i < parts.length; i++) {
+						await ctx.reply(parts[i]);
+					}
+				}
+			} catch (error: any) {
+				console.error('Ошибка при извлечении пользователей:', error);
+				await ctx.answerCallbackQuery({
+					text: `❌ Ошибка: ${error.message || 'Неизвестная ошибка'}`,
+					show_alert: true,
+				});
+			}
+			return;
+		}
+
+		if (data.startsWith(CALLBACK_PREFIXES.BACK_TO_ANALYSIS)) {
+			const chatId = Number(data.split('_').pop());
+			const pending = pendingMessages.get(chatId);
+			
+			if (!pending) {
+				await ctx.answerCallbackQuery({
+					text: '⚠️ Данные о файле не найдены. Загрузите файл заново.',
+					show_alert: true,
+				});
+				return;
+			}
+
+			await ctx.answerCallbackQuery();
+			
+			// Возвращаемся к панели анализа
+			const authorFilter = pending.authorFilter;
+			const limitKeyboard = createLimitKeyboard(chatId, authorFilter);
+			const filterInfo = authorFilter
+				? `\n👤 Фильтр по автору: "${authorFilter}"`
+				: '';
+
+			await ctx.editMessageText(
+				`📊 Готов к анализу!\n` +
+					`📁 Файл: ${pending.fileName}\n` +
+					`📨 Всего сообщений: ${pending.messages.length}${filterInfo}\n\n` +
+					`Выберите, сколько сообщений анализировать:`,
+				{
+					reply_markup: limitKeyboard,
+				}
+			);
+			return;
+		}
+
 		if (data.startsWith(CALLBACK_PREFIXES.CANCEL)) {
 			const chatId = Number(data.split('_')[1]);
 			await handleCancelCallback(ctx, chatId);
@@ -86,7 +215,10 @@ export function registerCallbacks(
 						const isNumeric = /^\d+$/.test(filter.trim());
 						return pending.messages.filter(msg => {
 							if (isNumeric) {
-								return msg.userId && String(msg.userId) === filter.trim();
+								if (!msg.userId) return false;
+								const userIdFilter = filter.trim().replace(/^user/, '');
+								const normalizedMsgUserId = normalizeUserIdForComparison(msg.userId);
+								return normalizedMsgUserId === userIdFilter;
 							} else {
 								return msg.author.toLowerCase().includes(filter.toLowerCase());
 							}
