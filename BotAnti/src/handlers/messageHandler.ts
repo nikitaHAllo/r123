@@ -114,7 +114,6 @@ async function handleAuthorFilterInput(
 		delete pending.authorFilter;
 		waitingForAuthorFilter.delete(chatId);
 
-		// Импортируем createLimitKeyboard для показа обновленной клавиатуры
 		const { createLimitKeyboard } = await import('./messageAnalysis.js');
 		const keyboard = createLimitKeyboard(chatId);
 
@@ -132,26 +131,21 @@ async function handleAuthorFilterInput(
 		return true;
 	}
 
-	// Устанавливаем фильтр
 	pending.authorFilter = authorName;
 	waitingForAuthorFilter.delete(chatId);
 
-	// Проверяем, сколько сообщений соответствует фильтру
 	const isNumeric = /^\d+$/.test(authorName.trim());
 	const filteredCount = pending.messages.filter(msg => {
 		if (isNumeric) {
-			// Фильтр по user_id
 			if (!msg.userId) return false;
 			const userIdFilter = authorName.trim().replace(/^user/, '');
 			const normalizedMsgUserId = normalizeUserIdForComparison(msg.userId);
 			return normalizedMsgUserId === userIdFilter;
 		} else {
-			// Фильтр по имени
 			return msg.author.toLowerCase().includes(authorName.toLowerCase());
 		}
 	}).length;
 
-	// Импортируем createLimitKeyboard для показа обновленной клавиатуры
 	const { createLimitKeyboard } = await import('./messageAnalysis.js');
 	const keyboard = createLimitKeyboard(chatId, authorName);
 
@@ -250,14 +244,13 @@ export function registerMessageHandlers(
 						`Для анализа всех сообщений используйте команду /analyze`
 				);
 
-				// Сохраняем rawData в pending для доступа через callback
 				const chatId = ctx.chat.id;
 				const existingPending = pendingMessages.get(chatId);
 				pendingMessages.set(chatId, {
 					messages: existingPending?.messages || result.messages,
 					fileName: result.fileName,
 					authorFilter: existingPending?.authorFilter,
-					rawData: result.rawData // Сохраняем для извлечения пользователей
+					rawData: result.rawData
 				});
 			}
 			return;

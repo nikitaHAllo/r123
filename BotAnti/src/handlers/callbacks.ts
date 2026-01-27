@@ -83,7 +83,6 @@ export function registerCallbacks(
 					return;
 				}
 
-				// Форматируем список пользователей в нужном формате
 				const usersList = users.map(user => {
 					const userId = user.userId.startsWith('user') 
 						? user.userId 
@@ -91,11 +90,9 @@ export function registerCallbacks(
 					return `${userId} — пользователь «${user.name}»`;
 				}).join('\n');
 
-				// Создаем клавиатуру с кнопкой "Назад"
 				const backKeyboard = new InlineKeyboard()
 					.text('◀️ Назад к анализу', `back_to_analysis_${chatId}`);
 
-				// Telegram ограничивает длину сообщения, разбиваем на части если нужно
 				const MAX_MESSAGE_LENGTH = 4000;
 				if (usersList.length <= MAX_MESSAGE_LENGTH) {
 					await ctx.editMessageText(
@@ -106,7 +103,6 @@ export function registerCallbacks(
 						}
 					);
 				} else {
-					// Разбиваем на части
 					const parts = [];
 					let currentPart = '';
 					
@@ -136,7 +132,6 @@ export function registerCallbacks(
 						}
 					);
 
-					// Отправляем остальные части
 					for (let i = 1; i < parts.length; i++) {
 						await ctx.reply(parts[i]);
 					}
@@ -165,7 +160,6 @@ export function registerCallbacks(
 
 			await ctx.answerCallbackQuery();
 			
-			// Возвращаемся к панели анализа
 			const authorFilter = pending.authorFilter;
 			const limitKeyboard = createLimitKeyboard(chatId, authorFilter);
 			const filterInfo = authorFilter
@@ -208,7 +202,6 @@ export function registerCallbacks(
 				? `\n\nТекущий фильтр: "${pending.authorFilter}"\nДля сброса отправьте "clear"`
 				: '';
 
-			// Показываем количество сообщений с текущим фильтром
 			const filteredCount = pending.authorFilter
 				? (() => {
 						const filter = pending.authorFilter!;

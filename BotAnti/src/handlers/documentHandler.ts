@@ -6,7 +6,7 @@ import * as cheerio from 'cheerio';
 export interface MessageData {
 	author: string;
 	text: string;
-	userId?: string | number; // ID пользователя (если доступен)
+	userId?: string | number;
 }
 
 export interface UserInfo {
@@ -17,12 +17,10 @@ export interface UserInfo {
 export interface ProcessedDocument {
 	messages: MessageData[];
 	fileName: string;
-	rawData?: any; // Сохраняем сырые данные для извлечения пользователей
+	rawData?: any;
 }
 
-// Функция для извлечения user_id из сообщения
 function extractUserIdFromMessage(msg: any): string | number | undefined {
-	// Для сообщений типа "service" (служебные действия) - actor_id
 	if (msg.type === 'service' && msg.actor_id) {
 		if (typeof msg.actor_id === 'string' || typeof msg.actor_id === 'number') {
 			return msg.actor_id;
@@ -31,7 +29,6 @@ function extractUserIdFromMessage(msg: any): string | number | undefined {
 		}
 	}
 
-	// Для сообщений типа "message" - from_id
 	if (msg.type === 'message' || !msg.type) {
 		if (msg.from_id) {
 			if (typeof msg.from_id === 'string' || typeof msg.from_id === 'number') {
@@ -54,11 +51,9 @@ function parseJsonMessages(data: any): MessageData[] {
 	if (!Array.isArray(data.messages)) return messages;
 
 	for (const msg of data.messages) {
-		// Пропускаем service сообщения без текста, но извлекаем user_id для них
 		if (msg.type === 'service') {
 			const userId = extractUserIdFromMessage(msg);
 			if (userId && msg.actor) {
-				// Если есть текст в service сообщении, создаем сообщение
 				let text = '';
 				if (msg.text) {
 					if (typeof msg.text === 'string') {
@@ -104,17 +99,13 @@ function parseJsonMessages(data: any): MessageData[] {
 	return messages;
 }
 
-// Функция для нормализации user_id в формат "user123456"
 function normalizeUserId(userId: string | number | undefined): string | null {
 	if (userId === undefined || userId === null) return null;
 	
 	const userIdStr = String(userId);
-	// Если уже в формате "user123456", оставляем как есть
 	if (userIdStr.startsWith('user')) {
 		return userIdStr;
 	}
-	// Иначе добавляем префикс "user"
-	// Извлекаем только цифры на случай, если есть другие символы
 	const numericMatch = userIdStr.match(/\d+/);
 	if (numericMatch) {
 		return `user${numericMatch[0]}`;
@@ -122,32 +113,26 @@ function normalizeUserId(userId: string | number | undefined): string | null {
 	return null;
 }
 
-// Функция для извлечения уникальных пользователей из JSON файла
 export function extractUniqueUsers(data: any): UserInfo[] {
 	const usersMap = new Map<string, UserInfo>();
 	if (!Array.isArray(data.messages)) return [];
 
-	// Сначала собираем всех пользователей из сообщений
 	for (const msg of data.messages) {
 		let userId: string | number | undefined;
 		let userName: string | undefined;
 
-		// Для service сообщений
 		if (msg.type === 'service') {
 			userId = extractUserIdFromMessage(msg);
 			userName = msg.actor || msg.from;
 		}
-		// Для обычных сообщений
 		else if (msg.type === 'message' || !msg.type) {
 			userId = extractUserIdFromMessage(msg);
 			userName = msg.from;
 		}
 
-		// Добавляем пользователя из сообщения
 		if (userId) {
 			const normalizedId = normalizeUserId(userId);
 			if (normalizedId && userName) {
-				// Если пользователь уже есть, обновляем имя если оно было пустым
 				const existing = usersMap.get(normalizedId);
 				if (!existing || existing.name === 'Неизвестный пользователь') {
 					usersMap.set(normalizedId, {
@@ -158,32 +143,26 @@ export function extractUniqueUsers(data: any): UserInfo[] {
 			}
 		}
 
-		// Извлекаем user_id из reactions
 		if (msg.reactions) {
 			let recentReactions: any[] = [];
 
-			// reactions может быть массивом объектов с полем recent
 			if (Array.isArray(msg.reactions)) {
 				for (const reaction of msg.reactions) {
 					if (reaction.recent && Array.isArray(reaction.recent)) {
 						recentReactions.push(...reaction.recent);
 					}
-					// Если сам элемент реакции имеет from_id
 					if (reaction.from_id && !reaction.recent) {
 						recentReactions.push(reaction);
 					}
 				}
 			}
-			// или reactions может быть объектом с полем recent
 			else if (msg.reactions.recent && Array.isArray(msg.reactions.recent)) {
 				recentReactions = msg.reactions.recent;
 			}
-			// или reactions может быть объектом с массивом recent в других местах
 			else if (Array.isArray(msg.reactions)) {
 				recentReactions = msg.reactions;
 			}
 
-			// Обрабатываем все найденные реакции
 			for (const recentReaction of recentReactions) {
 				if (recentReaction.from_id) {
 					let reactionUserId: string | number | undefined;
@@ -196,9 +175,7 @@ export function extractUniqueUsers(data: any): UserInfo[] {
 					if (reactionUserId) {
 						const normalizedId = normalizeUserId(reactionUserId);
 						if (normalizedId) {
-							// Если пользователь еще не добавлен, добавляем его
 							if (!usersMap.has(normalizedId)) {
-								// Попытаемся найти имя из других сообщений этого пользователя
 								const existingMsg = data.messages.find((m: any) => {
 									const id = extractUserIdFromMessage(m);
 									const normalizedMsgId = normalizeUserId(id);
@@ -234,14 +211,11 @@ function parseHtmlMessages(html: string): MessageData[] {
 
 		if (author) currentAuthor = author;
 
-		// Пытаемся извлечь user_id из data-атрибутов или других источников
-		// В HTML экспорте Telegram может быть data-peer-id или другие атрибуты
 		const peerId = $el.attr('data-peer-id') || 
 		               $el.find('[data-peer-id]').first().attr('data-peer-id') ||
 		               $el.attr('data-from-id');
 		
 		if (peerId) {
-			// Убираем префикс "user" если есть (например "user123456789")
 			const idMatch = peerId.toString().match(/(\d+)/);
 			if (idMatch) {
 				currentUserId = idMatch[1];
@@ -307,7 +281,7 @@ export async function processDocument(
 		return { 
 			messages, 
 			fileName,
-			rawData: parsedData // Сохраняем сырые данные для извлечения пользователей
+			rawData: parsedData
 		};
 	} catch (error: any) {
 		console.error('Ошибка в processDocument:', error);

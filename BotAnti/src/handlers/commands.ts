@@ -78,8 +78,8 @@ export function registerCommands(
 		pendingMessages.set(chatId, {
 			messages: allMessages,
 			fileName: `все_файлы_(${totalFilesProcessed.value})`,
-			authorFilter: pending?.authorFilter, // Сохраняем фильтр если он был установлен
-			rawData: pending?.rawData, // Сохраняем rawData если он был (для последнего загруженного JSON файла)
+			authorFilter: pending?.authorFilter,
+			rawData: pending?.rawData,
 		});
 	});
 
@@ -123,12 +123,10 @@ export function registerCommands(
 			return;
 		}
 
-		// Устанавливаем или обновляем фильтр
 		const pending = pendingMessages.get(chatId);
 		if (pending) {
 			pending.authorFilter = authorName;
 		} else {
-			// Если нет pending, создаем временный для хранения фильтра
 			pendingMessages.set(chatId, {
 				messages: allMessages,
 				fileName: 'ожидание_файла',
@@ -136,17 +134,14 @@ export function registerCommands(
 			});
 		}
 
-		// Проверяем, сколько сообщений соответствует фильтру
 		const isNumeric = /^\d+$/.test(authorName.trim());
 		const filteredCount = allMessages.filter(msg => {
 			if (isNumeric) {
-				// Фильтр по user_id
 				if (!msg.userId) return false;
 				const userIdFilter = authorName.trim().replace(/^user/, '');
 				const normalizedMsgUserId = normalizeUserIdForComparison(msg.userId);
 				return normalizedMsgUserId === userIdFilter;
 			} else {
-				// Фильтр по имени
 				return msg.author.toLowerCase().includes(authorName.toLowerCase());
 			}
 		}).length;

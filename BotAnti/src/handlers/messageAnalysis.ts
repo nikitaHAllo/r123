@@ -18,8 +18,8 @@ export interface ActiveAnalysis {
 export interface PendingMessages {
 	messages: MessageData[];
 	fileName: string;
-	authorFilter?: string; // Фильтр по имени автора
-	rawData?: any; // Сырые данные JSON для извлечения пользователей
+	authorFilter?: string;
+	rawData?: any;
 }
 
 export const activeAnalyses = new Map<number, ActiveAnalysis>();
@@ -44,7 +44,6 @@ interface DetectedViolation {
 	reasonText?: string;
 }
 
-// ИСПРАВЛЕННАЯ функция экранирования для HTML
 function escapeHtml(str = ''): string {
 	return str
 		.replace(/&/g, '&amp;')
@@ -187,7 +186,6 @@ async function analyzeMessage(
 	return violation;
 }
 
-// ИСПРАВЛЕННАЯ функция formatViolation для HTML
 function formatViolation(violation: DetectedViolation): string {
 	const header = `<b>${violation.index}.</b> 👤 <b>${escapeHtml(
 		violation.author
@@ -252,20 +250,17 @@ async function sendViolationsReport(
 	if (chunkText) await sendChunk(ctx, chunkText);
 }
 
-// ИСПРАВЛЕННАЯ функция sendChunk с HTML форматированием
 async function sendChunk(ctx: Context, text: string): Promise<void> {
 	for (let i = 0; i < text.length; i += MAX_MESSAGE_LENGTH) {
 		const chunk = text.slice(i, i + MAX_MESSAGE_LENGTH);
 
 		try {
-			// Текст уже экранирован в formatViolation через escapeHtml
 			await ctx.reply(chunk, {
 				parse_mode: 'HTML',
 			});
 		} catch (error) {
 			console.error('Ошибка отправки с HTML:', error);
 
-			// Пробуем отправить без форматирования
 			try {
 				await ctx.reply(chunk, {
 					parse_mode: undefined,
@@ -273,7 +268,6 @@ async function sendChunk(ctx: Context, text: string): Promise<void> {
 			} catch (secondError) {
 				console.error('Ошибка отправки без форматирования:', secondError);
 
-				// Если текст слишком длинный, разбиваем его по строкам
 				const lines = chunk.split('\n');
 				let currentChunk = '';
 
@@ -283,7 +277,6 @@ async function sendChunk(ctx: Context, text: string): Promise<void> {
 							await ctx.reply(currentChunk, { parse_mode: undefined });
 							currentChunk = line;
 						} else {
-							// Даже одна строка слишком длинная - режем её
 							for (let j = 0; j < line.length; j += MAX_MESSAGE_LENGTH) {
 								await ctx.reply(line.slice(j, j + MAX_MESSAGE_LENGTH), {
 									parse_mode: undefined,
@@ -325,16 +318,13 @@ async function handleCancellation(
 	activeAnalyses.delete(chatId);
 }
 
-// Функция для нормализации user_id к числовому формату (убираем префикс "user" если есть)
 export function normalizeUserIdForComparison(userId: string | number | undefined): string | null {
 	if (userId === undefined || userId === null) return null;
 	
 	const userIdStr = String(userId);
-	// Если есть префикс "user", убираем его
 	if (userIdStr.startsWith('user')) {
-		return userIdStr.substring(4); // Убираем "user"
+		return userIdStr.substring(4);
 	}
-	// Извлекаем только цифры
 	const numericMatch = userIdStr.match(/\d+/);
 	if (numericMatch) {
 		return numericMatch[0];
@@ -351,16 +341,13 @@ export async function startAnalysis(
 	limit: number | null,
 	totalFilesProcessed: number,
 	onComplete?: () => void,
-	authorFilter?: string // Фильтр по имени автора или user_id
+	authorFilter?: string
 ) {
-	// Сначала фильтруем по автору или user_id, если указан фильтр
 	let filteredMessages = messages;
 	if (authorFilter) {
-		// Проверяем, является ли фильтр числом (user_id) или строкой (имя)
 		const isNumeric = /^\d+$/.test(authorFilter.trim());
 		
 		if (isNumeric) {
-			// Фильтруем по user_id - нормализуем фильтр (убираем "user" если есть)
 			const userIdFilter = authorFilter.trim().replace(/^user/, '');
 			filteredMessages = messages.filter(msg => {
 				if (!msg.userId) return false;
@@ -368,7 +355,6 @@ export async function startAnalysis(
 				return normalizedMsgUserId === userIdFilter;
 			});
 		} else {
-			// Фильтруем по имени автора
 			filteredMessages = messages.filter(msg =>
 				msg.author.toLowerCase().includes(authorFilter.toLowerCase())
 			);
@@ -503,15 +489,12 @@ export function createLimitKeyboard(
 		.text('✏️ Ввести число', callbackCustom)
 		.row();
 	
-	// Всегда показываем кнопку поиска по имени на отдельной строке
-	// Если фильтр установлен, показываем его на кнопке
 	if (authorFilter) {
 		keyboard.row().text(`👤 Фильтр: ${authorFilter}`, callbackAuthorFilter);
 	} else {
 		keyboard.row().text('👤 Поиск по имени', callbackAuthorFilter);
 	}
 
-	// Проверяем наличие rawData для показа кнопки списка пользователей
 	const pending = pendingMessages.get(chatId);
 	if (pending?.rawData) {
 		keyboard.row().text('👥 Список пользователей', callbackShowUsers);
