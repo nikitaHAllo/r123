@@ -2,12 +2,14 @@
 	"name": "botanti",
 	"version": "1.0.0",
 	"type": "module",
-	"main": "dist/bot.js",
+	"main": "dist/index.js",
 	"scripts": {
-		"dev": "tsx src/bot.ts",
+		"dev": "tsx src/index.ts",
+		"dev:bot": "tsx src/bot.ts",
 		"import:words": "tsx src/import_words.ts",
 		"build": "tsc",
-		"start": "node dist/bot.js"
+		"start": "node dist/index.js",
+		"start:bot": "node dist/bot.js"
 	},
 	"author": "",
 	"license": "ISC",
@@ -25,6 +27,7 @@
 		"dotenv": "^17.2.2",
 		"grammy": "^1.38.2",
 		"sqlite": "^5.1.1",
-		"sqlite3": "^5.1.7"
+		"sqlite3": "^5.1.7",
+		"telegram": "^2.26.22"
 	}
 }

@@ -25,7 +25,30 @@ export async function initDB() {
             priority INTEGER,
             enabled INTEGER DEFAULT 1
         );
+        CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
     `);
+}
+
+/** Настройки админки — общие для бота и userbot (одна БД). */
+export async function getSetting(key: string): Promise<string | null> {
+	const db = await dbPromise;
+	const row = (await db.get('SELECT value FROM settings WHERE key = ?', [key])) as { value: string } | undefined;
+	return row?.value ?? null;
+}
+
+export async function setSetting(key: string, value: string): Promise<void> {
+	const db = await dbPromise;
+	await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value]);
+}
+
+/** Загрузить настройки из БД в state (общий для бота и userbot). */
+export async function loadSettingsFromDB(): Promise<void> {
+	const { setProfanity, setAdvertising, setDeleteMessages, setNeuralNetwork, setCurrentModel } = await import('./state.js');
+	const p = await getSetting('FILTER_PROFANITY'); if (p !== null) setProfanity(p === '1');
+	const a = await getSetting('FILTER_ADVERTISING'); if (a !== null) setAdvertising(a === '1');
+	const d = await getSetting('DELETE_MESSAGES'); if (d !== null) setDeleteMessages(d === '1');
+	const n = await getSetting('USE_NEURAL_NETWORK'); if (n !== null) setNeuralNetwork(n === '1');
+	const m = await getSetting('CURRENT_MODEL'); if (m != null && m !== '') setCurrentModel(m);
 }
 
 export async function addWord(

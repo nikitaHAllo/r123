@@ -399,6 +399,8 @@ export async function startAnalysis(
 
 	for (const [index, msg] of messagesToAnalyze.entries()) {
 		try {
+			// Даём event loop обработать callback "Отмена" до следующей итерации
+			await Promise.resolve();
 			checkCancelled(chatId);
 			await analyzeMessage(
 				msg,

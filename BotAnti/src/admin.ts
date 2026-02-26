@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard, Context } from 'grammy';
 import { ADMINS, PROFANITY_WORDS, AD_KEYWORDS } from './config.js';
-import { dbPromise, addWord, deleteWord, getWords } from './db.js';
+import { dbPromise, addWord, deleteWord, getWords, setSetting } from './db.js';
 import {
 	updateProfanity,
 	updateAd,
@@ -143,7 +143,13 @@ function neuralTopicsKeyboard() {
 
 export function registerAdminPanel(bot: Bot<Context>) {
 	bot.command('start', async ctx => {
-		await ctx.reply('Бот запущен, откройте панель администратора - /admin');
+		if (ctx.from && ADMINS.includes(ctx.from.id)) {
+			await ctx.reply('👋 Бот запущен. Открой панель: /admin', {
+				reply_markup: mainAdminKeyboard(),
+			});
+		} else {
+			await ctx.reply('Бот запущен. Админ-панель: /admin');
+		}
 	});
 
 	bot.command('admin', async ctx => {
@@ -152,7 +158,7 @@ export function registerAdminPanel(bot: Bot<Context>) {
 			return ctx.reply('⚠️ Админ-панель доступна только в личке с ботом');
 		}
 
-		await ctx.reply('Панель администратора:', {
+		await ctx.reply('📋 Панель администратора', {
 			reply_markup: mainAdminKeyboard(),
 		});
 	});
@@ -198,32 +204,42 @@ export function registerAdminPanel(bot: Bot<Context>) {
 		const db = await dbPromise;
 
 		switch (data) {
-			case 'toggle_delete':
+			case 'toggle_delete': {
+				const v = toggleDeleteMessages();
+				await setSetting('DELETE_MESSAGES', v ? '1' : '0');
 				await ctx.editMessageText(
-					`Фильтр удаления: ${toggleDeleteMessages() ? '✅ Вкл' : '❌ Выкл'}`,
+					`Фильтр удаления: ${v ? '✅ Вкл' : '❌ Выкл'}`,
 					{ reply_markup: backToAdminKeyboard() }
 				);
 				break;
-			case 'toggle_profanity':
+			}
+			case 'toggle_profanity': {
+				const v = toggleProfanity();
+				await setSetting('FILTER_PROFANITY', v ? '1' : '0');
 				await ctx.editMessageText(
-					`Фильтр брани: ${toggleProfanity() ? '✅ Вкл' : '❌ Выкл'}`,
+					`Фильтр брани: ${v ? '✅ Вкл' : '❌ Выкл'}`,
 					{ reply_markup: backToAdminKeyboard() }
 				);
 				break;
-
-			case 'toggle_ad':
+			}
+			case 'toggle_ad': {
+				const v = toggleAdvertising();
+				await setSetting('FILTER_ADVERTISING', v ? '1' : '0');
 				await ctx.editMessageText(
-					`Фильтр рекламы: ${toggleAdvertising() ? '✅ Вкл' : '❌ Выкл'}`,
+					`Фильтр рекламы: ${v ? '✅ Вкл' : '❌ Выкл'}`,
 					{ reply_markup: backToAdminKeyboard() }
 				);
 				break;
-
-			case 'toggle_neural':
+			}
+			case 'toggle_neural': {
+				const v = toggleNeuralNetwork();
+				await setSetting('USE_NEURAL_NETWORK', v ? '1' : '0');
 				await ctx.editMessageText(
-					`Нейросеть: ${toggleNeuralNetwork() ? '✅ Вкл' : '❌ Выкл'}`,
+					`Нейросеть: ${v ? '✅ Вкл' : '❌ Выкл'}`,
 					{ reply_markup: backToAdminKeyboard() }
 				);
 				break;
+			}
 
 			case 'neural_models':
 				const currentModel = getCurrentModel();
@@ -308,7 +324,7 @@ export function registerAdminPanel(bot: Bot<Context>) {
 				break;
 
 			case 'back_to_admin':
-				await ctx.editMessageText('Панель администратора:', {
+				await ctx.editMessageText('📋 Панель администратора', {
 					reply_markup: mainAdminKeyboard(),
 				});
 				break;
@@ -464,6 +480,7 @@ export function registerAdminPanel(bot: Bot<Context>) {
 
 					if (model) {
 						setCurrentModel(model);
+						await setSetting('CURRENT_MODEL', model);
 						await ctx.editMessageText(`✅ Модель изменена на: ${model}`, {
 							reply_markup: neuralModelsKeyboard(),
 						});

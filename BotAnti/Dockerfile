@@ -15,4 +15,5 @@ COPY --from=builder /app/dist ./dist
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node
 ENV NODE_ENV=production
-CMD ["node", "dist/bot.js"]
+# По умолчанию userbot. Для обычного бота: CMD ["node", "dist/bot.js"]
+CMD ["node", "dist/index.js"]

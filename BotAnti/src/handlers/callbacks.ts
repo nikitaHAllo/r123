@@ -275,7 +275,9 @@ export function registerCallbacks(
 			const authorFilter = pending.authorFilter;
 			pendingMessages.delete(chatId);
 			await ctx.editMessageText('✅ Начинаю анализ...');
-			await startAnalysis(
+			// Не ждём завершения анализа — запускаем в фоне, чтобы обработчик вернулся
+			// и бот мог принять callback "Отмена" (иначе event loop блокируется этим handler'ом)
+			startAnalysis(
 				ctx,
 				bot,
 				chatId,
@@ -285,7 +287,11 @@ export function registerCallbacks(
 				totalFilesProcessed.value,
 				onAnalysisComplete,
 				authorFilter
-			);
+			).catch(err => {
+				if (err instanceof Error && err.message !== 'cancelled') {
+					console.error('Ошибка фонового анализа:', err);
+				}
+			});
 		}
 	});
 }

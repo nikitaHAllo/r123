@@ -1,6 +1,6 @@
 import { Bot } from 'grammy';
 import { BOT_TOKEN, ADMINS } from './config.js';
-import { initDB, getWords } from './db.js';
+import { initDB, getWords, loadSettingsFromDB } from './db.js';
 import { updateCustom } from './filters.js';
 import { registerAdminPanel, initAdminDB } from './admin.js';
 import { registerCommands } from './handlers/commands.js';
@@ -10,6 +10,7 @@ import { MessageData } from './handlers/documentHandler.js';
 
 async function main() {
 	await initDB();
+	await loadSettingsFromDB();
 	await initAdminDB();
 
 	console.log('ADMINS:', ADMINS);

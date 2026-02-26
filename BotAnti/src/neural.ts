@@ -210,3 +210,21 @@ export async function toggleTopic(
 export function getTopicsByPriority(): TopicConfig[] {
 	return [...TOPICS].sort((a, b) => a.priority - b.priority);
 }
+
+/** Перезагрузить темы из БД (чтобы userbot подхватывал удаление/изменения из админки бота). */
+export async function loadTopicsFromDB(): Promise<void> {
+	const db = await dbPromise;
+	const rows = (await db.all(
+		'SELECT name, system_prompt, priority, enabled FROM topics'
+	)) as { name: string; system_prompt: string; priority: number; enabled: number }[];
+	TOPICS.length = 0;
+	for (const row of rows) {
+		TOPICS.push({
+			name: row.name,
+			systemPrompt: row.system_prompt,
+			keywords: [],
+			priority: row.priority,
+			enabled: !!row.enabled,
+		});
+	}
+}

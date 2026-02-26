@@ -1,5 +1,4 @@
 import { Bot, Context } from 'grammy';
-import { BOT_TOKEN } from '../config.js';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
@@ -46,7 +45,7 @@ function extractUserIdFromMessage(msg: any): string | number | undefined {
 	return undefined;
 }
 
-function parseJsonMessages(data: any): MessageData[] {
+export function parseJsonMessages(data: any): MessageData[] {
 	const messages: MessageData[] = [];
 	if (!Array.isArray(data.messages)) return messages;
 
@@ -198,7 +197,7 @@ export function extractUniqueUsers(data: any): UserInfo[] {
 	return Array.from(usersMap.values()).sort((a, b) => a.userId.localeCompare(b.userId));
 }
 
-function parseHtmlMessages(html: string): MessageData[] {
+export function parseHtmlMessages(html: string): MessageData[] {
 	const $ = cheerio.load(html);
 	const messages: MessageData[] = [];
 	let currentAuthor = '';
@@ -235,6 +234,24 @@ function parseHtmlMessages(html: string): MessageData[] {
 	return messages;
 }
 
+/** Парсинг файла из буфера (для userbot: после downloadMedia) */
+export function parseDocumentFromBuffer(
+	buffer: Buffer,
+	fileName: string
+): ProcessedDocument | null {
+	if (!fileName.endsWith('.html') && !fileName.endsWith('.json')) return null;
+	const bodyStr = buffer.toString('utf-8');
+	let parsedData: any = null;
+	const messages = fileName.endsWith('.json')
+		? (() => {
+				parsedData = JSON.parse(bodyStr);
+				return parseJsonMessages(parsedData);
+		  })()
+		: parseHtmlMessages(bodyStr);
+	if (messages.length === 0) return null;
+	return { messages, fileName, rawData: parsedData };
+}
+
 export async function processDocument(
 	ctx: Context,
 	bot: Bot
@@ -259,6 +276,8 @@ export async function processDocument(
 			return null;
 		}
 
+		const BOT_TOKEN = process.env.BOT_TOKEN || '';
+		if (!BOT_TOKEN) throw new Error('BOT_TOKEN не задан (нужен для загрузки файла через Bot API)');
 		const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileInfo.file_path}`;
 		const response = await axios.get<ArrayBuffer>(fileUrl, {
 			responseType: 'arraybuffer',
