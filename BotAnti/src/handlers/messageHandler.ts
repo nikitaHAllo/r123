@@ -1,19 +1,12 @@
 import { Bot } from 'grammy';
 import { ADMINS, ALLOWED_CHATS } from '../config.js';
-import {
-	FILTER_PROFANITY,
-	FILTER_ADVERTISING,
-	USE_NEURAL_NETWORK,
-} from '../state.js';
 import { checkProfanity, checkAd, checkCustom } from '../filters.js';
-import { analyzeSequentially, analyzeAllTopics } from '../neural.js';
-import { handleViolation } from './violationHandler.js';
+import { analyzeAllTopics } from '../neural.js';
 import { dbPromise } from '../db.js';
 import { getIsCheckingChat } from './commands.js';
 import { getViolationReason } from './violationHandler.js';
 import { processDocument } from './documentHandler.js';
 import {
-	activeAnalyses,
 	pendingMessages,
 	startAnalysis,
 	normalizeUserIdForComparison,
@@ -32,36 +25,6 @@ function checkDocumentAccess(ctx: any): boolean {
 	}
 
 	return isAdminUser || isAllowedChat;
-}
-
-function detectViolation(text: string): string | null {
-	if (USE_NEURAL_NETWORK && text.length > 3) {
-		return null;
-	}
-
-	if (FILTER_PROFANITY && checkProfanity(text)) {
-		return 'violation_profanity';
-	}
-	if (FILTER_ADVERTISING && checkAd(text)) {
-		return 'violation_ad';
-	}
-	if (checkCustom(text)) {
-		return 'violation_custom';
-	}
-	return null;
-}
-
-async function checkMessageWithNeural(text: string): Promise<string | null> {
-	try {
-		const neuralViolation = await analyzeSequentially(text);
-		return neuralViolation ? `neural_${neuralViolation.topic}` : null;
-	} catch (err: unknown) {
-		if (err instanceof Error && err.message === 'cancelled') {
-			throw err;
-		}
-		console.error('Ошибка нейросети:', err);
-		return null;
-	}
 }
 
 async function handleAdminCheckMode(ctx: any, text: string): Promise<void> {
@@ -217,6 +180,11 @@ export function registerMessageHandlers(
 		const chatId = ctx.chat.id;
 		const msgText = ctx.message.text ?? ctx.message.caption ?? '';
 
+		// Не обрабатывать отчёты о нарушениях, которые userbot присылает боту в личку
+		if (msgText.startsWith('🚨 Нарушение!') || msgText.startsWith('🚨 нарушение!')) {
+			return;
+		}
+
 		if (ctx.message.document) {
 			if (waitingForCustomLimit.has(chatId)) {
 				waitingForCustomLimit.delete(chatId);
@@ -273,42 +241,15 @@ export function registerMessageHandlers(
 			return;
 		}
 
-		const text = msgText.toLowerCase();
-		let violation: string | null = null;
-
-		if (USE_NEURAL_NETWORK && text.length > 3) {
-			try {
-				violation = await checkMessageWithNeural(text);
-			} catch (err: unknown) {
-				if (err instanceof Error && err.message === 'cancelled') {
-					await ctx.reply('🛑 Анализ прерван пользователем.');
-					activeAnalyses.delete(chatId);
-					return;
-				}
-			}
-		}
-
-		if (!violation) {
-			violation = detectViolation(text);
-		}
-
-		if (violation) {
-			await handleViolation(ctx, bot, violation);
-		} else {
-			const db = await dbPromise;
-			await db.run('INSERT INTO statistics (type,timestamp) VALUES (?,?)', [
-				'message_ok',
-				Math.floor(Date.now() / 1000),
-			]);
-		}
-
+		// Анализ на нарушения (нейросеть + фильтры) только в userbot. Бот только принимает отчёты и команды.
+		// Режим «проверки» для админа: вручную отправить текст и получить результат проверки.
 		if (
 			getIsCheckingChat() &&
 			ctx.from &&
 			ADMINS.includes(ctx.from.id) &&
 			ctx.chat.type === 'private'
 		) {
-			await handleAdminCheckMode(ctx, text);
+			await handleAdminCheckMode(ctx, msgText);
 		}
 	});
 }

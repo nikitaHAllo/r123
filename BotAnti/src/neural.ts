@@ -129,12 +129,16 @@ export async function analyzeWithNeural(
 			reason: content,
 		};
 	} catch (error: any) {
+		const isTimeout =
+			error?.code === 'ECONNABORTED' ||
+			/timeout.*15000|15000.*timeout/i.test(error?.message || '');
+		if (isTimeout) {
+			throw error;
+		}
 		console.error(`Ошибка нейросети (${topicName}):`, error.message);
-
 		if (error.response) {
 			console.error('Детали ошибки:', error.response.data);
 		}
-
 		return {
 			topic: topicName,
 			detected: false,

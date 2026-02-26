@@ -33,7 +33,7 @@ function handleCancelCallback(ctx: any, chatId: number) {
 }
 
 function parseLimitCallback(
-	data: string
+	data: string,
 ): { chatId: number; limitStr: string } | null {
 	const match = data.match(/^analyze_limit_(\d+)_(.+)$/);
 	if (!match) return null;
@@ -53,7 +53,7 @@ function parseLimit(limitStr: string, maxLimit: number): number | null {
 export function registerCallbacks(
 	bot: Bot,
 	totalFilesProcessed: { value: number },
-	onAnalysisComplete?: () => void
+	onAnalysisComplete?: () => void,
 ) {
 	bot.on('callback_query:data', async ctx => {
 		const data = ctx.callbackQuery?.data;
@@ -62,7 +62,7 @@ export function registerCallbacks(
 		if (data.startsWith(CALLBACK_PREFIXES.SHOW_USERS)) {
 			const chatId = Number(data.split('_').pop());
 			const pending = pendingMessages.get(chatId);
-			
+
 			if (!pending || !pending.rawData) {
 				await ctx.answerCallbackQuery({
 					text: '⚠️ Данные о файле не найдены. Загрузите файл заново.',
@@ -72,43 +72,44 @@ export function registerCallbacks(
 			}
 
 			await ctx.answerCallbackQuery();
-			
+
 			try {
 				const users = extractUniqueUsers(pending.rawData);
-				
+
 				if (users.length === 0) {
-					await ctx.editMessageText(
-						'⚠️ Пользователи не найдены в файле.'
-					);
+					await ctx.editMessageText('⚠️ Пользователи не найдены в файле.');
 					return;
 				}
 
-				const usersList = users.map(user => {
-					const userId = user.userId.startsWith('user') 
-						? user.userId 
-						: `user${user.userId}`;
-					return `${userId} — пользователь «${user.name}»`;
-				}).join('\n');
+				const usersList = users
+					.map(user => {
+						const userId = user.userId.startsWith('user')
+							? user.userId
+							: `user${user.userId}`;
+						return `${userId} — пользователь «${user.name}»`;
+					})
+					.join('\n');
 
-				const backKeyboard = new InlineKeyboard()
-					.text('◀️ Назад к анализу', `back_to_analysis_${chatId}`);
+				const backKeyboard = new InlineKeyboard().text(
+					'◀️ Назад к анализу',
+					`back_to_analysis_${chatId}`,
+				);
 
 				const MAX_MESSAGE_LENGTH = 4000;
 				if (usersList.length <= MAX_MESSAGE_LENGTH) {
 					await ctx.editMessageText(
-						`👥 Список пользователей (${users.length}):\n\n` +
-						usersList,
+						`👥 Список пользователей (${users.length}):\n\n` + usersList,
 						{
 							reply_markup: backKeyboard,
-						}
+						},
 					);
 				} else {
 					const parts = [];
 					let currentPart = '';
-					
+
 					for (const line of users.map(user => {
-						const userId = user.userId.startsWith('user') 
-							? user.userId 
+						const userId = user.userId.startsWith('user')
+							? user.userId
 							: `user${user.userId}`;
 						return `${userId} — пользователь «${user.name}»`;
 					})) {
@@ -119,17 +120,16 @@ export function registerCallbacks(
 							currentPart += line + '\n';
 						}
 					}
-					
+
 					if (currentPart) {
 						parts.push(currentPart);
 					}
 
 					await ctx.editMessageText(
-						`👥 Список пользователей (${users.length}):\n\n` +
-						parts[0],
+						`👥 Список пользователей (${users.length}):\n\n` + parts[0],
 						{
 							reply_markup: backKeyboard,
-						}
+						},
 					);
 
 					for (let i = 1; i < parts.length; i++) {
@@ -149,7 +149,7 @@ export function registerCallbacks(
 		if (data.startsWith(CALLBACK_PREFIXES.BACK_TO_ANALYSIS)) {
 			const chatId = Number(data.split('_').pop());
 			const pending = pendingMessages.get(chatId);
-			
+
 			if (!pending) {
 				await ctx.answerCallbackQuery({
 					text: '⚠️ Данные о файле не найдены. Загрузите файл заново.',
@@ -159,7 +159,7 @@ export function registerCallbacks(
 			}
 
 			await ctx.answerCallbackQuery();
-			
+
 			const authorFilter = pending.authorFilter;
 			const limitKeyboard = createLimitKeyboard(chatId, authorFilter);
 			const filterInfo = authorFilter
@@ -173,7 +173,7 @@ export function registerCallbacks(
 					`Выберите, сколько сообщений анализировать:`,
 				{
 					reply_markup: limitKeyboard,
-				}
+				},
 			);
 			return;
 		}
@@ -210,28 +210,30 @@ export function registerCallbacks(
 							if (isNumeric) {
 								if (!msg.userId) return false;
 								const userIdFilter = filter.trim().replace(/^user/, '');
-								const normalizedMsgUserId = normalizeUserIdForComparison(msg.userId);
+								const normalizedMsgUserId = normalizeUserIdForComparison(
+									msg.userId,
+								);
 								return normalizedMsgUserId === userIdFilter;
 							} else {
 								return msg.author.toLowerCase().includes(filter.toLowerCase());
 							}
 						}).length;
-				  })()
+					})()
 				: pending.messages.length;
 
 			const keyboard = createLimitKeyboard(chatId, pending.authorFilter);
 
 			await ctx.editMessageText(
 				`👤 Введите имя автора или user_id для поиска сообщений:${currentFilter}\n\n` +
-				`Примеры:\n` +
-				`• По имени: Никита\n` +
-				`• По user_id: 123456789\n\n` +
-				`Будут проверены только сообщения от авторов, чье имя содержит указанное или user_id совпадает.\n\n` +
-				`📊 Всего сообщений: ${pending.messages.length}\n` +
-				`📊 Сообщений с текущим фильтром: ${filteredCount}`,
+					`Примеры:\n` +
+					`• По имени: Никита\n` +
+					`• По user_id: 123456789\n\n` +
+					`Будут проверены только сообщения от авторов, чье имя содержит указанное или user_id совпадает.\n\n` +
+					`📊 Всего сообщений: ${pending.messages.length}\n` +
+					`📊 Сообщений с текущим фильтром: ${filteredCount}`,
 				{
 					reply_markup: keyboard,
-				}
+				},
 			);
 			return;
 		}
@@ -261,7 +263,7 @@ export function registerCallbacks(
 			if (limitStr === 'custom') {
 				waitingForCustomLimit.set(chatId, true);
 				await ctx.editMessageText(
-					`✏️ Введите количество сообщений для анализа (от 1 до ${pending.messages.length}):`
+					`✏️ Введите количество сообщений для анализа (от 1 до ${pending.messages.length}):`,
 				);
 				return;
 			}
@@ -286,7 +288,7 @@ export function registerCallbacks(
 				limit,
 				totalFilesProcessed.value,
 				onAnalysisComplete,
-				authorFilter
+				authorFilter,
 			).catch(err => {
 				if (err instanceof Error && err.message !== 'cancelled') {
 					console.error('Ошибка фонового анализа:', err);

@@ -31,7 +31,17 @@ async function logViolation(
 
 	for (const dest of LOG_CHAT_IDS) {
 		try {
-			const entity = dest.toLowerCase() === 'me' ? 'me' : dest;
+			let entity: string | number | object = dest.toLowerCase() === 'me' ? 'me' : dest;
+			if (entity !== 'me' && /^\d+$/.test(String(dest))) {
+				try {
+					entity = await client.getEntity(parseInt(String(dest), 10));
+				} catch {
+					console.error(
+						`Получатель ${dest}: пользователь не в кэше. Пусть напишет вашему аккаунту (userbot) в ЛС хотя бы раз, либо укажите LOG_CHAT_ID=me`
+					);
+					continue;
+				}
+			}
 			await client.sendMessage(entity, { message: msg });
 			await client.forwardMessages(entity, {
 				messages: [messageId],
@@ -50,9 +60,13 @@ async function logViolation(
 				messages: [messageId],
 				fromPeer: chatId,
 			});
+			console.log(`  📤 Отчёт отправлен боту @${BOT_USERNAME}`);
 		} catch (err) {
-			console.error('Ошибка отправки отчёта боту:', err);
+			const errMsg = err instanceof Error ? err.message : String(err);
+			console.error(`Ошибка отправки отчёта боту @${BOT_USERNAME}:`, errMsg);
 		}
+	} else {
+		console.log('  ⚠️ BOT_USERNAME не задан в .env — отчёт в бота не отправляется');
 	}
 }
 

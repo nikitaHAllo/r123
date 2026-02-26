@@ -9,7 +9,17 @@
 		"import:words": "tsx src/import_words.ts",
 		"build": "tsc",
 		"start": "node dist/index.js",
-		"start:bot": "node dist/bot.js"
+		"start:bot": "node dist/bot.js",
+		"lint": "eslint src --ext .ts",
+		"lint:fix": "eslint src --ext .ts --fix",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"prepare": "husky"
+	},
+	"lint-staged": {
+		"*.ts": [
+			"eslint --fix"
+		]
 	},
 	"author": "",
 	"license": "ISC",
@@ -18,8 +28,15 @@
 		"@types/axios": "^0.9.36",
 		"@types/node": "^24.5.2",
 		"@types/sqlite3": "^3.1.11",
+		"@typescript-eslint/eslint-plugin": "^8.18.0",
+		"@typescript-eslint/parser": "^8.18.0",
+		"eslint": "^8.57.0",
+		"eslint-plugin-import": "^2.32.0",
 		"tsx": "^4.20.5",
-		"typescript": "^5.9.2"
+		"typescript": "^5.9.2",
+		"vitest": "^2.1.9",
+		"husky": "^9.1.7",
+		"lint-staged": "^15.4.3"
 	},
 	"dependencies": {
 		"axios": "^1.13.2",

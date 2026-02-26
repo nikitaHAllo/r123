@@ -68,7 +68,7 @@ export function parseJsonMessages(data: any): MessageData[] {
 					messages.push({
 						author: msg.actor || msg.from || 'System',
 						text: text.trim(),
-						userId: userId
+						userId: userId,
 					});
 				}
 			}
@@ -88,10 +88,10 @@ export function parseJsonMessages(data: any): MessageData[] {
 
 		if (text.trim()) {
 			const userId = extractUserIdFromMessage(msg);
-			messages.push({ 
-				author: msg.from, 
+			messages.push({
+				author: msg.from,
 				text: text.trim(),
-				userId: userId
+				userId: userId,
 			});
 		}
 	}
@@ -100,7 +100,7 @@ export function parseJsonMessages(data: any): MessageData[] {
 
 function normalizeUserId(userId: string | number | undefined): string | null {
 	if (userId === undefined || userId === null) return null;
-	
+
 	const userIdStr = String(userId);
 	if (userIdStr.startsWith('user')) {
 		return userIdStr;
@@ -123,8 +123,7 @@ export function extractUniqueUsers(data: any): UserInfo[] {
 		if (msg.type === 'service') {
 			userId = extractUserIdFromMessage(msg);
 			userName = msg.actor || msg.from;
-		}
-		else if (msg.type === 'message' || !msg.type) {
+		} else if (msg.type === 'message' || !msg.type) {
 			userId = extractUserIdFromMessage(msg);
 			userName = msg.from;
 		}
@@ -136,7 +135,7 @@ export function extractUniqueUsers(data: any): UserInfo[] {
 				if (!existing || existing.name === 'Неизвестный пользователь') {
 					usersMap.set(normalizedId, {
 						userId: normalizedId,
-						name: userName
+						name: userName,
 					});
 				}
 			}
@@ -154,18 +153,19 @@ export function extractUniqueUsers(data: any): UserInfo[] {
 						recentReactions.push(reaction);
 					}
 				}
-			}
-			else if (msg.reactions.recent && Array.isArray(msg.reactions.recent)) {
+			} else if (msg.reactions.recent && Array.isArray(msg.reactions.recent)) {
 				recentReactions = msg.reactions.recent;
-			}
-			else if (Array.isArray(msg.reactions)) {
+			} else if (Array.isArray(msg.reactions)) {
 				recentReactions = msg.reactions;
 			}
 
 			for (const recentReaction of recentReactions) {
 				if (recentReaction.from_id) {
 					let reactionUserId: string | number | undefined;
-					if (typeof recentReaction.from_id === 'string' || typeof recentReaction.from_id === 'number') {
+					if (
+						typeof recentReaction.from_id === 'string' ||
+						typeof recentReaction.from_id === 'number'
+					) {
 						reactionUserId = recentReaction.from_id;
 					} else if (recentReaction.from_id.user_id) {
 						reactionUserId = recentReaction.from_id.user_id;
@@ -180,11 +180,14 @@ export function extractUniqueUsers(data: any): UserInfo[] {
 									const normalizedMsgId = normalizeUserId(id);
 									return normalizedMsgId === normalizedId;
 								});
-								
-								const userName = existingMsg?.from || existingMsg?.actor || 'Неизвестный пользователь';
+
+								const userName =
+									existingMsg?.from ||
+									existingMsg?.actor ||
+									'Неизвестный пользователь';
 								usersMap.set(normalizedId, {
 									userId: normalizedId,
-									name: userName
+									name: userName,
 								});
 							}
 						}
@@ -194,7 +197,9 @@ export function extractUniqueUsers(data: any): UserInfo[] {
 		}
 	}
 
-	return Array.from(usersMap.values()).sort((a, b) => a.userId.localeCompare(b.userId));
+	return Array.from(usersMap.values()).sort((a, b) =>
+		a.userId.localeCompare(b.userId),
+	);
 }
 
 export function parseHtmlMessages(html: string): MessageData[] {
@@ -210,10 +215,11 @@ export function parseHtmlMessages(html: string): MessageData[] {
 
 		if (author) currentAuthor = author;
 
-		const peerId = $el.attr('data-peer-id') || 
-		               $el.find('[data-peer-id]').first().attr('data-peer-id') ||
-		               $el.attr('data-from-id');
-		
+		const peerId =
+			$el.attr('data-peer-id') ||
+			$el.find('[data-peer-id]').first().attr('data-peer-id') ||
+			$el.attr('data-from-id');
+
 		if (peerId) {
 			const idMatch = peerId.toString().match(/(\d+)/);
 			if (idMatch) {
@@ -223,10 +229,10 @@ export function parseHtmlMessages(html: string): MessageData[] {
 
 		const text = $el.find('.text').text().trim();
 		if (currentAuthor && text) {
-			messages.push({ 
-				author: currentAuthor, 
+			messages.push({
+				author: currentAuthor,
 				text,
-				userId: currentUserId
+				userId: currentUserId,
 			});
 		}
 	});
@@ -237,7 +243,7 @@ export function parseHtmlMessages(html: string): MessageData[] {
 /** Парсинг файла из буфера (для userbot: после downloadMedia) */
 export function parseDocumentFromBuffer(
 	buffer: Buffer,
-	fileName: string
+	fileName: string,
 ): ProcessedDocument | null {
 	if (!fileName.endsWith('.html') && !fileName.endsWith('.json')) return null;
 	const bodyStr = buffer.toString('utf-8');
@@ -246,7 +252,7 @@ export function parseDocumentFromBuffer(
 		? (() => {
 				parsedData = JSON.parse(bodyStr);
 				return parseJsonMessages(parsedData);
-		  })()
+			})()
 		: parseHtmlMessages(bodyStr);
 	if (messages.length === 0) return null;
 	return { messages, fileName, rawData: parsedData };
@@ -254,7 +260,7 @@ export function parseDocumentFromBuffer(
 
 export async function processDocument(
 	ctx: Context,
-	bot: Bot
+	bot: Bot,
 ): Promise<ProcessedDocument | null> {
 	try {
 		const file = ctx.message?.document;
@@ -263,7 +269,7 @@ export async function processDocument(
 		const fileName = file.file_name || 'без_имени';
 		if (!fileName.endsWith('.html') && !fileName.endsWith('.json')) {
 			await ctx.reply(
-				`⚠️ Файл ${fileName} не поддерживается. Допустимые форматы: .html, .json`
+				`⚠️ Файл ${fileName} не поддерживается. Допустимые форматы: .html, .json`,
 			);
 			return null;
 		}
@@ -271,13 +277,16 @@ export async function processDocument(
 		const fileInfo = await bot.api.getFile(file.file_id);
 		if (!fileInfo.file_path) {
 			await ctx.reply(
-				'❌ Не удалось получить путь к файлу через Telegram API.'
+				'❌ Не удалось получить путь к файлу через Telegram API.',
 			);
 			return null;
 		}
 
 		const BOT_TOKEN = process.env.BOT_TOKEN || '';
-		if (!BOT_TOKEN) throw new Error('BOT_TOKEN не задан (нужен для загрузки файла через Bot API)');
+		if (!BOT_TOKEN)
+			throw new Error(
+				'BOT_TOKEN не задан (нужен для загрузки файла через Bot API)',
+			);
 		const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileInfo.file_path}`;
 		const response = await axios.get<ArrayBuffer>(fileUrl, {
 			responseType: 'arraybuffer',
@@ -287,9 +296,9 @@ export async function processDocument(
 		let parsedData: any = null;
 		const messages = fileName.endsWith('.json')
 			? (() => {
-				parsedData = JSON.parse(bodyStr);
-				return parseJsonMessages(parsedData);
-			})()
+					parsedData = JSON.parse(bodyStr);
+					return parseJsonMessages(parsedData);
+				})()
 			: parseHtmlMessages(bodyStr);
 
 		if (messages.length === 0) {
@@ -297,16 +306,16 @@ export async function processDocument(
 			return null;
 		}
 
-		return { 
-			messages, 
+		return {
+			messages,
 			fileName,
-			rawData: parsedData
+			rawData: parsedData,
 		};
 	} catch (error: any) {
 		console.error('Ошибка в processDocument:', error);
 		try {
 			await ctx.reply(
-				`❌ Ошибка при анализе файла: ${error.message || 'Неизвестная ошибка'}`
+				`❌ Ошибка при анализе файла: ${error.message || 'Неизвестная ошибка'}`,
 			);
 		} catch (replyError) {
 			console.error('Ошибка при отправке сообщения об ошибке:', replyError);

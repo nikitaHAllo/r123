@@ -143,13 +143,11 @@ function neuralTopicsKeyboard() {
 
 export function registerAdminPanel(bot: Bot<Context>) {
 	bot.command('start', async ctx => {
-		if (ctx.from && ADMINS.includes(ctx.from.id)) {
-			await ctx.reply('👋 Бот запущен. Открой панель: /admin', {
-				reply_markup: mainAdminKeyboard(),
-			});
-		} else {
-			await ctx.reply('Бот запущен. Админ-панель: /admin');
-		}
+		const isAdmin = ctx.from && ADMINS.includes(ctx.from.id);
+		const text = isAdmin
+			? '👋 Привет! Я бот модерации BotAnti.\n\nЧтобы открыть панель управления — используйте команду /admin'
+			: '👋 Привет! Я бот модерации BotAnti.\n\nАдмин-панель: /admin';
+		await ctx.reply(text);
 	});
 
 	bot.command('admin', async ctx => {

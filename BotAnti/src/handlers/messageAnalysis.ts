@@ -96,12 +96,20 @@ function checkCancelled(chatId: number): void {
 	if (!analysis || analysis.cancel) throw new Error('cancelled');
 }
 
+const NEURAL_TIMEOUT_THRESHOLD = 2;
+
+interface NeuralRunState {
+	consecutiveTimeouts: number;
+	skipNeural: boolean;
+}
+
 async function analyzeMessage(
 	msg: MessageData,
 	index: number,
 	total: number,
 	controller: AbortController,
-	violationsReport: DetectedViolation[]
+	violationsReport: DetectedViolation[],
+	neuralState: NeuralRunState
 ): Promise<string | null> {
 	const text = msg.text.toLowerCase();
 	let violation: string | null = null;
@@ -110,7 +118,12 @@ async function analyzeMessage(
 	let topic: string | undefined;
 	let reasonText: string | undefined;
 
-	if (USE_NEURAL_NETWORK && text.length > 3) {
+	const useNeural =
+		USE_NEURAL_NETWORK &&
+		text.length > 3 &&
+		!neuralState.skipNeural;
+
+	if (useNeural) {
 		if (index === 0 || index % NEURAL_LOG_FREQUENCY === 0) {
 			console.log(
 				`🧠 [${
@@ -126,6 +139,7 @@ async function analyzeMessage(
 				text,
 				controller.signal
 			);
+			neuralState.consecutiveTimeouts = 0;
 			if (neuralViolation && typeof neuralViolation === 'object') {
 				console.log(
 					`🚨 [${index + 1}] Нейросеть обнаружила нарушение: ${
@@ -145,10 +159,28 @@ async function analyzeMessage(
 			if (err instanceof Error && err.message === 'cancelled') {
 				throw err;
 			}
-			console.error(
-				`❌ Ошибка нейросети при анализе сообщения ${index + 1}:`,
-				err
-			);
+			const isTimeout =
+				(err as { code?: string }).code === 'ECONNABORTED' ||
+				(err instanceof Error &&
+					/timeout.*15000|15000.*timeout/i.test(err.message));
+			if (isTimeout) {
+				neuralState.consecutiveTimeouts++;
+				if (neuralState.consecutiveTimeouts >= NEURAL_TIMEOUT_THRESHOLD) {
+					neuralState.skipNeural = true;
+					console.log(
+						`⏱ Нейросеть не отвечает (${NEURAL_TIMEOUT_THRESHOLD} таймаута подряд). Оставшиеся сообщения анализируем только по фильтрам.`
+					);
+				} else {
+					console.log(
+						`⏱ Нейросеть не ответила за 15s (сообщение ${index + 1}) — проверяем по фильтрам`
+					);
+				}
+			} else {
+				console.error(
+					`❌ Ошибка нейросети при анализе сообщения ${index + 1}:`,
+					err
+				);
+			}
 		}
 	}
 
@@ -396,6 +428,7 @@ export async function startAnalysis(
 	const progressMessageId = startMessage.message_id;
 	const lastUpdateTime = { value: 0 };
 	const violationsReport: DetectedViolation[] = [];
+	const neuralState: NeuralRunState = { consecutiveTimeouts: 0, skipNeural: false };
 
 	for (const [index, msg] of messagesToAnalyze.entries()) {
 		try {
@@ -407,7 +440,8 @@ export async function startAnalysis(
 				index,
 				messagesToAnalyze.length,
 				controller,
-				violationsReport
+				violationsReport,
+				neuralState
 			);
 
 			if (
