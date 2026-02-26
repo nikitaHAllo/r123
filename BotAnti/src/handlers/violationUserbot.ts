@@ -34,7 +34,7 @@ async function logViolation(
 			let entity: string | number | object = dest.toLowerCase() === 'me' ? 'me' : dest;
 			if (entity !== 'me' && /^\d+$/.test(String(dest))) {
 				try {
-					entity = await client.getEntity(parseInt(String(dest), 10));
+					entity = (await client.getEntity(parseInt(String(dest), 10))) as string | number | object;
 				} catch {
 					console.error(
 						`Получатель ${dest}: пользователь не в кэше. Пусть напишет вашему аккаунту (userbot) в ЛС хотя бы раз, либо укажите LOG_CHAT_ID=me`
@@ -42,13 +42,14 @@ async function logViolation(
 					continue;
 				}
 			}
-			await client.sendMessage(entity, { message: msg });
-			await client.forwardMessages(entity, {
+			await client.sendMessage(entity as Parameters<TelegramClient['sendMessage']>[0], { message: msg });
+			await client.forwardMessages(entity as Parameters<TelegramClient['forwardMessages']>[0], {
 				messages: [messageId],
 				fromPeer: chatId,
 			});
 		} catch (err) {
-			console.error(`Ошибка логирования нарушения (получатель ${dest}):`, err);
+			const errMsg = err instanceof Error ? err.message : String(err);
+			console.error(`Ошибка логирования нарушения (получатель ${dest}):`, errMsg);
 		}
 	}
 
@@ -117,6 +118,7 @@ export async function handleViolationUserbot(
 			console.log(`🚫 Нарушение у ${userName}, автоудаление отключено (${getViolationReason(violationType)})`);
 		}
 	} catch (error) {
-		console.error('Ошибка при обработке нарушения:', error);
+		const errMsg = error instanceof Error ? error.message : String(error);
+		console.error('Ошибка при обработке нарушения:', errMsg);
 	}
 }
