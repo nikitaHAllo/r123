@@ -17,10 +17,14 @@
 
 ## Как запустить (Docker)
 
-### 1. Запустите Docker Desktop
+### 1. Установите и запустите Docker
 
-- Установите с [официального сайта](https://www.docker.com/products/docker-desktop/)
-- Дождитесь иконки в системном трее
+- **Windows / macOS:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) — установите и дождитесь иконки в трее.
+- **Linux:** установите Docker Engine. Если при запуске появляется `Permission denied`:
+  ```bash
+  sudo usermod -aG docker $USER
+  ```
+  Затем **выйдите из системы и зайдите снова** (или перезагрузите компьютер). После этого `docker-compose` будет работать без `sudo`.
 
 ### 2. Откройте проект и перейдите в папку BotAnti
 
@@ -33,10 +37,17 @@ cd BotAnti
 Скопируйте пример и заполните (см. раздел [Конфигурация](#-конфигурация)):
 
 ```bash
+# Windows (cmd):
 copy .env.example .env
+
+# Linux / macOS:
+cp .env.example .env
 ```
 
-Для **Userbot** обязательны `API_ID`, `API_HASH` и после первого входа — `SESSION_STRING` (см. [TEST_USERBOT.md](BotAnti/TEST_USERBOT.md)).
+Для **Userbot** обязательны `API_ID`, `API_HASH` и `SESSION_STRING`.
+
+- **Если используете тот же аккаунт, что и другой человек** — попросите у него готовые `API_ID`, `API_HASH` и `SESSION_STRING` и вставьте в `.env`. Регистрация в терминале не нужна.
+- **Если настраиваете свой аккаунт впервые** — в Docker **нельзя** ввести телефон и код. Сначала запустите без Docker: `npm run dev`, введите телефон и код, скопируйте выведенную строку `SESSION_STRING=...` в `.env`, затем уже запускайте `docker-compose up -d`. Подробнее: [TEST_USERBOT.md](BotAnti/TEST_USERBOT.md).
 
 ### 4. Запустите контейнер
 
@@ -50,13 +61,9 @@ docker-compose up -d
 docker-compose ps
 ```
 
-Должно быть: **Up**.
+Должны быть **Up** оба контейнера: **botanti-userbot** и **botanti-bot**.
 
-По умолчанию в Docker запускается **Userbot** (`dist/index.js`). Чтобы запускать классического бота, в `Dockerfile` замените последнюю строку на:
-
-```dockerfile
-CMD ["node", "dist/bot.js"]
-```
+По умолчанию `docker-compose up -d` запускает **и userbot, и бота** (общая БД). Запустить только один: `docker-compose up -d userbot` или `docker-compose up -d bot`. Подробнее: [SETUP.md](SETUP.md).
 
 ---
 
@@ -64,9 +71,12 @@ CMD ["node", "dist/bot.js"]
 
 | Команда | Описание |
 |---------|----------|
-| `docker-compose up -d` | Запустить в фоне |
-| `docker-compose down` | Остановить |
+| `docker-compose up -d` | Запустить оба (userbot + бот) |
+| `docker-compose up -d userbot` | Только userbot |
+| `docker-compose up -d bot` | Только бот |
+| `docker-compose down` | Остановить все |
 | `docker-compose logs -f` | Логи в реальном времени |
+| `docker-compose logs -f userbot` / `docker-compose logs -f bot` | Логи одного сервиса |
 | `docker-compose ps` | Статус контейнеров |
 | `docker-compose restart` | Перезапустить |
 | `docker-compose logs --tail=50` | Последние 50 строк логов |

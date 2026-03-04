@@ -41,8 +41,15 @@ async function checkMessageWithNeural(text: string): Promise<string | null> {
 		return r ? `neural_${r.topic}` : null;
 	} catch (e) {
 		if (e instanceof Error && e.message === 'cancelled') throw e;
-		const msg = e instanceof Error ? e.message : String(e);
-		console.error('Ошибка нейросети:', msg);
+		const err = e as { code?: string; message?: string };
+		const msg = err?.message ?? String(e);
+		const isTimeout =
+			err?.code === 'ECONNABORTED' || /timeout|ETIMEDOUT/i.test(msg);
+		if (isTimeout) {
+			console.error('Ошибка нейросети: таймаут (15 с). Проверьте OLLAMA_URL и доступность Ollama.');
+		} else {
+			console.error('Ошибка нейросети:', msg);
+		}
 		return null;
 	}
 }

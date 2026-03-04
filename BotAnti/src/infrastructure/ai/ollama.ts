@@ -1,11 +1,17 @@
+import dotenv from 'dotenv';
 import axios from 'axios';
 import type { IAiProvider, NeuralResult } from '../../core/ports/neuralNetwork.js';
 import type { ILogger } from '../../core/ports/logger.js';
 
+dotenv.config();
+
 const DEFAULT_PROMPT_CONDITION =
 	'\n\nТвой ответ это твоя уверенность числом от 0 до 100, где 0 это в тексте нет упоминаний из категорий, а 100 в тексте точно есть что-то из категорий.';
 
-export const DEFAULT_OLLAMA_URL = 'http://10.8.0.24:11434/v1/chat/completions';
+export const DEFAULT_OLLAMA_URL =
+	process.env.OLLAMA_URL ||
+	process.env.NEURAL_API_URL ||
+	'http://10.8.0.24:11434/v1/chat/completions';
 
 export interface OllamaAdapterOptions {
 	baseUrl?: string;

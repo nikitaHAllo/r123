@@ -1,8 +1,15 @@
+import dotenv from 'dotenv';
 import axios from 'axios';
 import { getCurrentModel } from './state.js';
 import { dbPromise } from './db.js';
 
-const NEURAL_API_URL = 'http://10.8.0.24:11434/v1/chat/completions';
+dotenv.config();
+
+/** URL Ollama API. В Docker задайте OLLAMA_URL (например http://host.docker.internal:11434/v1/chat/completions или IP хоста). */
+const NEURAL_API_URL =
+	process.env.OLLAMA_URL ||
+	process.env.NEURAL_API_URL ||
+	'http://10.8.0.24:11434/v1/chat/completions';
 
 const DEFAULT_PROMPT_CONDITION =
 	'\n\nТвой ответ это твоя уверенность числом от 0 до 100, где 0 это в тексте нет упоминаний из категорий, а 100 в тексте точно есть что-то из категорий.';

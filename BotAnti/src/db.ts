@@ -1,8 +1,14 @@
+import dotenv from 'dotenv';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 
+dotenv.config();
+
+/** Путь к SQLite. В Docker задаётся через DB_PATH=/data/database.db (общий том для userbot и бота). */
+const DB_PATH = process.env.DB_PATH || 'database.db';
+
 export const dbPromise = open({
-	filename: 'database.db',
+	filename: DB_PATH,
 	driver: sqlite3.Database,
 });
 
