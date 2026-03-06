@@ -19,7 +19,7 @@ const CALLBACK_PREFIXES = {
 	BACK_TO_ANALYSIS: 'back_to_analysis_',
 } as const;
 
-/** Ответ на callback. При "query is too old" (Docker, долгий анализ) не падаем, шлём сообщение в чат. */
+// При "query is too old" шлём ответ в чат, не падаем.
 async function safeAnswerCallback(
 	ctx: { answerCallbackQuery: (opts?: any) => Promise<boolean>; reply?: (text: string) => Promise<any> },
 	text: string,
@@ -35,7 +35,6 @@ async function safeAnswerCallback(
 		if (isTooOld && ctx.reply) {
 			await ctx.reply(text).catch(() => {});
 		}
-		// Не крашим бот: в Docker callback приходит с задержкой, query уже недействителен
 		if (!isTooOld) {
 			console.error('answerCallbackQuery:', err?.description || err?.message || err);
 		}
@@ -298,8 +297,6 @@ export function registerCallbacks(
 			const authorFilter = pending.authorFilter;
 			pendingMessages.delete(chatId);
 			await ctx.editMessageText('✅ Начинаю анализ...');
-			// Не ждём завершения анализа — запускаем в фоне, чтобы обработчик вернулся
-			// и бот мог принять callback "Отмена" (иначе event loop блокируется этим handler'ом)
 			startAnalysis(
 				ctx,
 				bot,

@@ -180,7 +180,6 @@ export function registerMessageHandlers(
 		const chatId = ctx.chat.id;
 		const msgText = ctx.message.text ?? ctx.message.caption ?? '';
 
-		// Не обрабатывать отчёты о нарушениях, которые userbot присылает боту в личку
 		if (msgText.startsWith('🚨 Нарушение!') || msgText.startsWith('🚨 нарушение!')) {
 			return;
 		}
@@ -241,8 +240,6 @@ export function registerMessageHandlers(
 			return;
 		}
 
-		// Анализ на нарушения (нейросеть + фильтры) только в userbot. Бот только принимает отчёты и команды.
-		// Режим «проверки» для админа: вручную отправить текст и получить результат проверки.
 		if (
 			getIsCheckingChat() &&
 			ctx.from &&

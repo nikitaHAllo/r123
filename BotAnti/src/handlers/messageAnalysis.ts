@@ -96,7 +96,7 @@ function checkCancelled(chatId: number): void {
 	if (!analysis || analysis.cancel) throw new Error('cancelled');
 }
 
-/** Таймаут одного запроса к нейросети при анализе файла (сек). После 2 таймаутов подряд — только фильтры. */
+// Таймаут нейросети при анализе файла; после 2 таймаутов — только фильтры.
 const NEURAL_FILE_ANALYSIS_TIMEOUT_MS = 30_000;
 const NEURAL_TIMEOUT_THRESHOLD = 2;
 
@@ -437,7 +437,6 @@ export async function startAnalysis(
 
 	for (const [index, msg] of messagesToAnalyze.entries()) {
 		try {
-			// Даём event loop обработать callback "Отмена" до следующей итерации
 			await Promise.resolve();
 			checkCancelled(chatId);
 			await analyzeMessage(

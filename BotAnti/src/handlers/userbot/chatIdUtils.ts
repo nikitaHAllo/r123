@@ -1,9 +1,5 @@
-/**
- * Утилиты для работы с ID чатов и медиа в userbot.
- */
 import { ALLOWED_CHATS } from '../../config.js';
 
-/** Приводит chatId к строке для сравнения. GramJS отдаёт BigInteger/Integer с .toString() или .value. */
 export function getChatIdStr(chatId: unknown): string {
 	if (chatId === undefined || chatId === null) return '';
 	let s: string;
@@ -30,12 +26,10 @@ export function getChatIdStr(chatId: unknown): string {
 	return s.replace(/^\-100/, '').replace(/^\-/, '').trim();
 }
 
-/** Нормализует ID для сравнения: и супергруппа -100xxx, и обычная группа -xxx дают xxx */
 export function normalizeChatIdForCompare(id: string): string {
 	return id.replace(/^\-100/, '').replace(/^\-/, '').trim();
 }
 
-/** Краткое название типа медиа для отчёта */
 export function getMediaKind(media: unknown): string | undefined {
 	if (!media || typeof media !== 'object') return undefined;
 	const name = (media as { className?: string }).className ?? '';

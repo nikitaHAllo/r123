@@ -4,7 +4,6 @@ import { open } from 'sqlite';
 
 dotenv.config();
 
-/** Путь к SQLite. В Docker задаётся через DB_PATH=/data/database.db (общий том для userbot и бота). */
 const DB_PATH = process.env.DB_PATH || 'database.db';
 
 export const dbPromise = open({
@@ -35,7 +34,6 @@ export async function initDB() {
     `);
 }
 
-/** Настройки админки — общие для бота и userbot (одна БД). */
 export async function getSetting(key: string): Promise<string | null> {
 	const db = await dbPromise;
 	const row = (await db.get('SELECT value FROM settings WHERE key = ?', [key])) as { value: string } | undefined;
@@ -47,7 +45,6 @@ export async function setSetting(key: string, value: string): Promise<void> {
 	await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value]);
 }
 
-/** Загрузить настройки из БД в state (общий для бота и userbot). */
 export async function loadSettingsFromDB(): Promise<void> {
 	const { setProfanity, setAdvertising, setDeleteMessages, setNeuralNetwork, setCurrentModel } = await import('./state.js');
 	const p = await getSetting('FILTER_PROFANITY'); if (p !== null) setProfanity(p === '1');

@@ -23,7 +23,6 @@ function formatMessageDate(unixTimestamp?: number): string {
 	return d.toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-/** Ссылка на сообщение в канале/супергруппе (t.me/c/ID/msgId). Для чатов с -100... */
 function getMessageLink(chatId: string | number, messageId: number): string {
 	const idStr = String(chatId).replace(/^-100/, '');
 	if (/^\d+$/.test(idStr)) return `https://t.me/c/${idStr}/${messageId}`;
@@ -31,23 +30,14 @@ function getMessageLink(chatId: string | number, messageId: number): string {
 }
 
 export interface ViolationExtra {
-	/** Публичный @username чата/канала */
 	chatUsername?: string;
-	/** ID сообщения, на которое ответили */
 	replyToMsgId?: number;
-	/** Переслано: откуда и когда */
 	fwdFrom?: { fromName?: string; fromId?: string; date?: number };
-	/** Дата редактирования (unix) */
 	editDate?: number;
-	/** Просмотры (пост в канале) */
 	views?: number;
-	/** Сколько раз переслали */
 	forwards?: number;
-	/** Отправлено через бота (ID бота) */
 	viaBotId?: number;
-	/** Автор поста (в канале) */
 	postAuthor?: string;
-	/** Тип вложения: фото, видео, документ, голосовое, стикер и т.д. */
 	mediaKind?: string;
 }
 
@@ -63,7 +53,6 @@ async function logViolation(
 	messageDate?: number,
 	extra?: ViolationExtra
 ) {
-	// Убираем случайно попавший в конец текста ID пользователя в скобках
 	const cleanText = text.replace(new RegExp(`\\s*\\(${userId}\\)\\s*$`), '').trim();
 	const reason = getViolationReason(violationType);
 	const dateStr = formatMessageDate(messageDate);
@@ -130,7 +119,6 @@ async function logViolation(
 		}
 	}
 
-	// Не дублируем в бота, если он уже в LOG_CHAT_IDS (по username или по числовому ID)
 	const botName = BOT_USERNAME ?? '';
 	let botAlreadyInList = botName && LOG_CHAT_IDS.some(
 		(d) => String(d).trim().replace(/^@/, '').toLowerCase() === botName.toLowerCase()

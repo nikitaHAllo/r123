@@ -1,6 +1,4 @@
-/**
- * Опрос каналов из ALLOWED_CHATS (fallback, когда Telegram не присылает обновления).
- */
+// Fallback-опрос каналов, если Telegram не присылает обновления.
 import type { TelegramClient } from 'telegram';
 import { ALLOWED_CHATS } from '../../config.js';
 import {
@@ -135,9 +133,7 @@ export function startUserbotPolling(client: TelegramClient): void {
 					if (id > maxId) maxId = id;
 				}
 				if (maxId > lastSeen) lastSeenIdByChat.set(normChat, maxId);
-			} catch {
-				// тихо игнорируем ошибки опроса (лимиты, сеть)
-			}
+			} catch {}
 		}
 	}, POLL_CHATS_INTERVAL_MS);
 

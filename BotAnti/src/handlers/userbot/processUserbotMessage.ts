@@ -1,6 +1,3 @@
-/**
- * Обработка одного сообщения userbot: фильтры, нейросеть, логирование нарушения.
- */
 import type { TelegramClient } from 'telegram';
 import {
 	FILTER_PROFANITY,
@@ -40,7 +37,6 @@ async function checkMessageWithNeural(text: string): Promise<string | null> {
 	}
 }
 
-/** Обрабатывает одно сообщение (фильтры + нейросеть + логирование). Используется и в событиях, и в polling. */
 export async function processOneMessage(
 	client: TelegramClient,
 	chatIdStr: string,

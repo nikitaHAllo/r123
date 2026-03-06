@@ -5,7 +5,7 @@ import { dbPromise } from './db.js';
 
 dotenv.config();
 
-/** URL Ollama API. В Docker задайте OLLAMA_URL (например http://host.docker.internal:11434/v1/chat/completions или IP хоста). */
+// OLLAMA_URL в Docker: host.docker.internal:11434 или IP хоста
 const NEURAL_API_URL =
 	process.env.OLLAMA_URL ||
 	process.env.NEURAL_API_URL ||
@@ -226,7 +226,6 @@ export function getTopicsByPriority(): TopicConfig[] {
 	return [...TOPICS].sort((a, b) => a.priority - b.priority);
 }
 
-/** Перезагрузить темы из БД (чтобы userbot подхватывал удаление/изменения из админки бота). */
 export async function loadTopicsFromDB(): Promise<void> {
 	const db = await dbPromise;
 	const rows = (await db.all(

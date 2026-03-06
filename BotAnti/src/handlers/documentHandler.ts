@@ -240,7 +240,6 @@ export function parseHtmlMessages(html: string): MessageData[] {
 	return messages;
 }
 
-/** Парсинг файла из буфера (для userbot: после downloadMedia) */
 export function parseDocumentFromBuffer(
 	buffer: Buffer,
 	fileName: string,

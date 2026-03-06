@@ -3,7 +3,6 @@ import { StringSession } from 'telegram/sessions/index.js';
 import { API_ID, API_HASH, SESSION_STRING } from './config.js';
 import readline from 'readline';
 
-/** Сессия GramJS — либо пустая строка, либо строка, начинающаяся с "1". Иначе библиотека бросает "Not a valid string". */
 function getSessionString(): string {
 	const s = typeof SESSION_STRING === 'string' ? SESSION_STRING.trim() : '';
 	if (!s) return '';
@@ -19,7 +18,6 @@ export function createClient(): TelegramClient {
 	return new TelegramClient(session, API_ID, API_HASH, {
 		connectionRetries: 5,
 		useWSS: false,
-		// При FloodWait ≤ 60 сек библиотека сама подождёт и повторит запрос
 		floodSleepThreshold: 60,
 		requestRetries: 5,
 	});

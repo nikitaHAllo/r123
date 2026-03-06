@@ -18,13 +18,7 @@ const effectiveAdminIds = new Set<number>([]);
 const SETTINGS_SYNC_INTERVAL_MS = 6_000;
 const GET_DIALOGS_INTERVAL_MS = 30_000;
 
-/**
- * Userbot только:
- * - в реальном времени просматривает сообщения в разрешённых чатах;
- * - анализирует по промпту (нейросеть) и фильтрам (брань, реклама, кастом);
- * - отсылает нарушения в LOG_CHAT_IDS и при наличии BOT_USERNAME — в личку боту.
- * Админ-панель и импорт/анализ файлов — только через бота (общая БД синхронизируется раз в 10 сек).
- */
+// Userbot: реалтайм сообщения, нейросеть+фильтры; админка и файлы — через бота.
 export async function registerUserbotHandlers(
 	client: TelegramClient,
 ): Promise<void> {
