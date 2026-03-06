@@ -17,6 +17,40 @@ export function getViolationReason(type: string | null): string {
 	return VIOLATION_REASONS[type] || 'нарушение правил';
 }
 
+function formatMessageDate(unixTimestamp?: number): string {
+	if (unixTimestamp == null || unixTimestamp <= 0) return '—';
+	const d = new Date(unixTimestamp * 1000);
+	return d.toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+/** Ссылка на сообщение в канале/супергруппе (t.me/c/ID/msgId). Для чатов с -100... */
+function getMessageLink(chatId: string | number, messageId: number): string {
+	const idStr = String(chatId).replace(/^-100/, '');
+	if (/^\d+$/.test(idStr)) return `https://t.me/c/${idStr}/${messageId}`;
+	return '—';
+}
+
+export interface ViolationExtra {
+	/** Публичный @username чата/канала */
+	chatUsername?: string;
+	/** ID сообщения, на которое ответили */
+	replyToMsgId?: number;
+	/** Переслано: откуда и когда */
+	fwdFrom?: { fromName?: string; fromId?: string; date?: number };
+	/** Дата редактирования (unix) */
+	editDate?: number;
+	/** Просмотры (пост в канале) */
+	views?: number;
+	/** Сколько раз переслали */
+	forwards?: number;
+	/** Отправлено через бота (ID бота) */
+	viaBotId?: number;
+	/** Автор поста (в канале) */
+	postAuthor?: string;
+	/** Тип вложения: фото, видео, документ, голосовое, стикер и т.д. */
+	mediaKind?: string;
+}
+
 async function logViolation(
 	client: TelegramClient,
 	chatId: string | number,
@@ -25,9 +59,52 @@ async function logViolation(
 	text: string,
 	messageId: number,
 	chatTitle: string | undefined,
-	userName: string
+	userName: string,
+	messageDate?: number,
+	extra?: ViolationExtra
 ) {
-	const msg = `🚨 Нарушение!\n📌 Чат: ${chatId} (${chatTitle || '—'})\n👤 Пользователь: ${userName} (${userId})\nТип: ${violationType}\nТекст: ${text}`;
+	// Убираем случайно попавший в конец текста ID пользователя в скобках
+	const cleanText = text.replace(new RegExp(`\\s*\\(${userId}\\)\\s*$`), '').trim();
+	const reason = getViolationReason(violationType);
+	const dateStr = formatMessageDate(messageDate);
+	const link = getMessageLink(chatId, messageId);
+
+	const lines: string[] = [
+		'🚨 Нарушение!',
+		`📌 Чат: ${chatId}${chatTitle ? ` (${chatTitle})` : ''}${extra?.chatUsername ? ` @${extra.chatUsername}` : ''}`,
+		`👤 Пользователь: ${userName} (ID User: ${userId})`,
+		`📅 Дата: ${dateStr}`,
+		`🔗 Ссылка: ${link}`,
+	];
+	if (extra?.replyToMsgId != null) {
+		lines.push(`↩️ Ответ на сообщение: #${extra.replyToMsgId}`);
+	}
+	if (extra?.fwdFrom) {
+		const f = extra.fwdFrom;
+		const from = [f.fromName, f.fromId].filter(Boolean).join(' ') || '—';
+		const fwdDate = f.date != null ? formatMessageDate(f.date) : '';
+		lines.push(`📤 Переслано: ${from}${fwdDate ? `, ${fwdDate}` : ''}`);
+	}
+	if (extra?.editDate != null && extra.editDate > 0) {
+		lines.push(`✏️ Редактировано: ${formatMessageDate(extra.editDate)}`);
+	}
+	if (extra?.views != null && extra.views > 0) {
+		lines.push(`👁 Просмотры: ${extra.views}`);
+	}
+	if (extra?.forwards != null && extra.forwards > 0) {
+		lines.push(`↗️ Переслано раз: ${extra.forwards}`);
+	}
+	if (extra?.viaBotId != null) {
+		lines.push(`🤖 Через бота (ID): ${extra.viaBotId}`);
+	}
+	if (extra?.postAuthor) {
+		lines.push(`✍️ Автор поста: ${extra.postAuthor}`);
+	}
+	if (extra?.mediaKind) {
+		lines.push(`📎 Вложение: ${extra.mediaKind}`);
+	}
+	lines.push(`Тип: ${reason}`, '', `Текст: ${cleanText}`);
+	const msg = lines.join('\n');
 
 	for (const dest of LOG_CHAT_IDS) {
 		try {
@@ -53,20 +130,34 @@ async function logViolation(
 		}
 	}
 
-	// Дублируем в личку с ботом — тогда отчёты видны в чате с ботом
-	if (BOT_USERNAME) {
+	// Не дублируем в бота, если он уже в LOG_CHAT_IDS (по username или по числовому ID)
+	const botName = BOT_USERNAME ?? '';
+	let botAlreadyInList = botName && LOG_CHAT_IDS.some(
+		(d) => String(d).trim().replace(/^@/, '').toLowerCase() === botName.toLowerCase()
+	);
+	if (botName && !botAlreadyInList) {
 		try {
-			await client.sendMessage(`@${BOT_USERNAME}`, { message: msg });
-			await client.forwardMessages(`@${BOT_USERNAME}`, {
+			const botEntity = await client.getEntity(`@${botName}`) as unknown as { id?: unknown };
+			const rawId = botEntity?.id;
+			const botId = rawId != null ? String(rawId) : null;
+			if (botId && LOG_CHAT_IDS.some((d) => String(d).trim() === botId)) {
+				botAlreadyInList = true;
+			}
+		} catch {}
+	}
+	if (botName && !botAlreadyInList) {
+		try {
+			await client.sendMessage(`@${botName}`, { message: msg });
+			await client.forwardMessages(`@${botName}`, {
 				messages: [messageId],
 				fromPeer: chatId,
 			});
-			console.log(`  📤 Отчёт отправлен боту @${BOT_USERNAME}`);
+			console.log(`  📤 Отчёт отправлен боту @${botName}`);
 		} catch (err) {
 			const errMsg = err instanceof Error ? err.message : String(err);
-			console.error(`Ошибка отправки отчёта боту @${BOT_USERNAME}:`, errMsg);
+			console.error(`Ошибка отправки отчёта боту @${botName}:`, errMsg);
 		}
-	} else {
+	} else if (!botName) {
 		console.log('  ⚠️ BOT_USERNAME не задан в .env — отчёт в бота не отправляется');
 	}
 }
@@ -80,7 +171,9 @@ export async function handleViolationUserbot(
 	text: string,
 	violationType: string,
 	chatTitle?: string,
-	isPrivate?: boolean
+	isPrivate?: boolean,
+	messageDate?: number,
+	extra?: ViolationExtra
 ): Promise<void> {
 	const db = await dbPromise;
 	await db.run('INSERT INTO statistics (type,timestamp) VALUES (?,?)', [
@@ -96,7 +189,9 @@ export async function handleViolationUserbot(
 		text,
 		messageId,
 		chatTitle,
-		userName
+		userName,
+		messageDate,
+		extra
 	);
 
 	try {

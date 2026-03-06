@@ -8,9 +8,9 @@ RUN npm run build
 
 FROM node:20-alpine
 WORKDIR /app
-RUN apk add --no-cache sqlite
-COPY package*.json ./
-RUN npm ci --omit=dev --ignore-scripts
+RUN apk add --no-cache sqlite build-base python3
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm rebuild sqlite3
 COPY --from=builder /app/dist ./dist
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node

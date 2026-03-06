@@ -1,5 +1,5 @@
 import { TelegramClient } from 'telegram';
-import { StringSession } from 'telegram/sessions';
+import { StringSession } from 'telegram/sessions/index.js';
 import { API_ID, API_HASH, SESSION_STRING } from './config.js';
 import readline from 'readline';
 

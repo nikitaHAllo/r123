@@ -96,11 +96,19 @@ function checkCancelled(chatId: number): void {
 	if (!analysis || analysis.cancel) throw new Error('cancelled');
 }
 
+/** Таймаут одного запроса к нейросети при анализе файла (сек). После 2 таймаутов подряд — только фильтры. */
+const NEURAL_FILE_ANALYSIS_TIMEOUT_MS = 30_000;
 const NEURAL_TIMEOUT_THRESHOLD = 2;
 
 interface NeuralRunState {
 	consecutiveTimeouts: number;
 	skipNeural: boolean;
+}
+
+function isNeuralTimeout(err: unknown): boolean {
+	const code = (err as { code?: string })?.code;
+	const msg = (err instanceof Error ? err.message : String(err ?? '')) || '';
+	return code === 'ECONNABORTED' || /timeout|ETIMEDOUT/i.test(msg);
 }
 
 async function analyzeMessage(
@@ -137,7 +145,8 @@ async function analyzeMessage(
 		try {
 			const neuralViolation = await analyzeSequentially(
 				text,
-				controller.signal
+				controller.signal,
+				NEURAL_FILE_ANALYSIS_TIMEOUT_MS
 			);
 			neuralState.consecutiveTimeouts = 0;
 			if (neuralViolation && typeof neuralViolation === 'object') {
@@ -159,20 +168,16 @@ async function analyzeMessage(
 			if (err instanceof Error && err.message === 'cancelled') {
 				throw err;
 			}
-			const isTimeout =
-				(err as { code?: string }).code === 'ECONNABORTED' ||
-				(err instanceof Error &&
-					/timeout.*15000|15000.*timeout/i.test(err.message));
-			if (isTimeout) {
+			if (isNeuralTimeout(err)) {
 				neuralState.consecutiveTimeouts++;
 				if (neuralState.consecutiveTimeouts >= NEURAL_TIMEOUT_THRESHOLD) {
 					neuralState.skipNeural = true;
 					console.log(
-						`⏱ Нейросеть не отвечает (${NEURAL_TIMEOUT_THRESHOLD} таймаута подряд). Оставшиеся сообщения анализируем только по фильтрам.`
+						`⏱ Нейросеть не отвечает (${NEURAL_TIMEOUT_THRESHOLD} таймаута подряд по ${NEURAL_FILE_ANALYSIS_TIMEOUT_MS / 1000}с). Оставшиеся сообщения анализируем только по фильтрам.`
 					);
 				} else {
 					console.log(
-						`⏱ Нейросеть не ответила за 15s (сообщение ${index + 1}) — проверяем по фильтрам`
+						`⏱ Нейросеть не ответила за ${NEURAL_FILE_ANALYSIS_TIMEOUT_MS / 1000}с (сообщение ${index + 1}) — проверяем по фильтрам`
 					);
 				}
 			} else {

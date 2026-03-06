@@ -19,17 +19,38 @@ const CALLBACK_PREFIXES = {
 	BACK_TO_ANALYSIS: 'back_to_analysis_',
 } as const;
 
-function handleCancelCallback(ctx: any, chatId: number) {
+/** Ответ на callback. При "query is too old" (Docker, долгий анализ) не падаем, шлём сообщение в чат. */
+async function safeAnswerCallback(
+	ctx: { answerCallbackQuery: (opts?: any) => Promise<boolean>; reply?: (text: string) => Promise<any> },
+	text: string,
+	options?: { show_alert?: boolean },
+): Promise<void> {
+	try {
+		await ctx.answerCallbackQuery({ text, ...options });
+	} catch (err: any) {
+		const isTooOld =
+			err?.description?.includes('too old') ||
+			err?.description?.includes('timeout expired') ||
+			(err?.error_code === 400 && err?.description?.includes('query'));
+		if (isTooOld && ctx.reply) {
+			await ctx.reply(text).catch(() => {});
+		}
+		// Не крашим бот: в Docker callback приходит с задержкой, query уже недействителен
+		if (!isTooOld) {
+			console.error('answerCallbackQuery:', err?.description || err?.message || err);
+		}
+	}
+}
+
+async function handleCancelCallback(ctx: any, chatId: number): Promise<void> {
 	const analysis = activeAnalyses.get(chatId);
 	if (analysis && !analysis.cancel) {
 		analysis.cancel = true;
 		analysis.controller?.abort();
-		return ctx.answerCallbackQuery({ text: '⏹ Анализ остановлен.' });
+		await safeAnswerCallback(ctx, '⏹ Анализ остановлен.');
+		return;
 	}
-	return ctx.answerCallbackQuery({
-		text: '⚠️ Анализ не выполняется.',
-		show_alert: false,
-	});
+	await safeAnswerCallback(ctx, '⚠️ Анализ не выполняется.', { show_alert: false });
 }
 
 function parseLimitCallback(

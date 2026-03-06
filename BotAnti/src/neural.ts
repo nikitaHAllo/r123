@@ -47,10 +47,13 @@ export interface NeuralResult {
 	reason?: string;
 }
 
+const DEFAULT_NEURAL_TIMEOUT_MS = 15000;
+
 export async function analyzeWithNeural(
 	message: string,
 	topicName: string,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	timeoutMs: number = DEFAULT_NEURAL_TIMEOUT_MS
 ): Promise<NeuralResult> {
 	try {
 		const topic = TOPICS.find(t => t.name === topicName);
@@ -77,7 +80,7 @@ export async function analyzeWithNeural(
 				max_tokens: 50,
 			},
 			{
-				timeout: 15000,
+				timeout: timeoutMs,
 				headers: { 'Content-Type': 'application/json' },
 				...(signal ? { signal } : {}),
 			} as any
@@ -138,7 +141,7 @@ export async function analyzeWithNeural(
 	} catch (error: any) {
 		const isTimeout =
 			error?.code === 'ECONNABORTED' ||
-			/timeout.*15000|15000.*timeout/i.test(error?.message || '');
+			/timeout|ETIMEDOUT/i.test(error?.message || '');
 		if (isTimeout) {
 			throw error;
 		}
@@ -156,7 +159,8 @@ export async function analyzeWithNeural(
 
 export async function analyzeSequentially(
 	message: string,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	timeoutMs: number = DEFAULT_NEURAL_TIMEOUT_MS
 ): Promise<NeuralResult | null> {
 	const sortedTopics = [...TOPICS]
 		.filter(topic => topic.enabled)
@@ -166,7 +170,7 @@ export async function analyzeSequentially(
 		if (signal?.aborted) {
 			throw new Error('cancelled');
 		}
-		const result = await analyzeWithNeural(message, topic.name, signal);
+		const result = await analyzeWithNeural(message, topic.name, signal, timeoutMs);
 
 		if (result.detected) {
 			console.log(
